@@ -38,6 +38,8 @@ store = "Coto Alto Rosario (Av. Junín y Thedy)"
 store_id = "165"
 # Resultados por request. La API acepta hasta 500 sin problemas.
 page_size = 200
+# Categorías de Coto que no son supermercado. Se descartan los productos que estén en alguna.
+exclude_categories = ["Electro", "Textil", "Hogar", "Aire Libre"]
 
 [dar]
 enabled = true

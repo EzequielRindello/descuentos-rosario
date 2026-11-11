@@ -26,6 +26,24 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 - `data/run.json`: resumen de la última corrida por cadena (`ok`, `offers`, `seconds`, `error`). Si una cadena falla, su archivo de ofertas del día anterior queda como está.
 - El detector descarta `list_price` menores o iguales al precio, o más de 5 veces mayores (caso Jumbo), y calcula `discount_pct`.
 
+## Sitio generado (`dist/`)
+
+`cargo run --release -- build` lee `data/`, `config/stores.toml` y `config/site.toml`, y escribe:
+
+| Ruta | Qué es |
+| --- | --- |
+| `/` | Portada: búsqueda, guardados, las 20 mejores ofertas de cada cadena. |
+| `/<cadena>/`, `/<cadena>/pagina/N/` | Todas las ofertas de la cadena, de a 100, ordenadas por descuento. |
+| `/datos/` | Explicación de los datos abiertos y sus campos. |
+| `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
+| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url]`. |
+| `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
+| `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
+| `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto. |
+| `/404.html` | Página de error (Workers la usa con `not_found_handling: "404-page"`). |
+
+Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con `include_str!`/`include_bytes!`: hay que recompilar para ver cambios. La clave de cada oferta es `<cadena>:<id>`; los guardados se guardan en `localStorage` con esa clave.
+
 ## SEO y descubrimiento por IAs
 
 - HTML generado de antemano, con las ofertas escritas en la página. Nada de SPA con `<div id="root">` vacío.
@@ -66,7 +84,8 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 - Tipos de oferta (`product.tipoOferta`): la dimensión es multi-selección, así que todos los tipos se combinan en una sola consulta `N-aZbZc...` (OR). El scraper los descubre en cada corrida: lee el menú de la dimensión en `/sitios/cdigi/categoria?Nr=<filtro>&format=json` y sigue su `moreLink` para ver todos. El 10/11/2026 había 22 tipos (2X1, 3X2, 6X5, 8X7, "Hasta 20/30/40/50% DTO!!", "2da Unid 50/70%", "Exclusivas", etc.).
 - `Nrpp` acepta al menos 500 (3,6 MB en ~1 s). Se usa 200.
 - Primera corrida real (10/11/2026): 13.400 ofertas disponibles en la 165, 99 s. Descuento mediano 30%, máximo 80%. Promos más comunes: "30%Dto", "25%Dto", "35%Dto", "1 Pago 20%".
-- URL de producto: se arma como `https://www.coto.com.ar/sitios/cdigi/productos` + `detailsAction.recordState` (sin `?format=json`). Redirige al sitio nuevo, que es una SPA: falta confirmar que muestre el producto.
+- Categorías (dimensión `product.category`): Almacén, Bebidas, Frescos, Congelados, Limpieza, Perfumería, Electro, Textil, Hogar, Aire Libre. El scraper descarta los productos cuyo `allAncestors.displayName` incluye alguna de `exclude_categories` (hoy Electro, Textil, Hogar y Aire Libre). Con el filtro quedaron 4.766 ofertas (se descartaron 8.634).
+- URL de producto: se arma como `https://www.coto.com.ar/sitios/cdigi/productos` + `detailsAction.recordState` (sin `?format=json`). Redirige a `/productos/...` del sitio nuevo y muestra el producto. Verificado el 11/11/2026: porotos Lonquimay a $1.201,80 con 70% off y precio regular $4.006, igual que en nuestros datos.
 - Promos de 2da unidad: `precioDesc` es el precio por unidad llevando 2, y `textoLlevando` dice la condición ("Llevando 2"). El scraper arma `promo` como "70% 2da (Llevando 2)".
 - Por producto (en `records[0].attributes`): `product.displayName`, `product.eanPrincipal`, `sku.dtoPrice` (JSON con `precioLista`), `product.dtoDescuentos` (JSON con `textoDescuento` y `precioDescuento`), `product.dtoDescuentosMediosPago`, `product.sDisp_<tienda>`.
 - Precio normal = `precioLista`. Precio de oferta = `precioDescuento`. El campo `precio` de `sku.dtoPrice` NO es el precio del producto (parece precio por unidad de medida).

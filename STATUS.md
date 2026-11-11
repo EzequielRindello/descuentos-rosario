@@ -22,11 +22,11 @@ Documentos:
 
 ## Por dónde vamos
 
-Hecho: los scrapers de las tres cadenas del MVP andan y escriben el JSON del día. Primera corrida real (10/11/2026): Carrefour 1.643 ofertas, Coto 13.400, DAR 280, en ~3,5 minutos.
+Hecho: los scrapers de las tres cadenas andan y el sitio estático se genera completo (HTML con las ofertas, SEO, PWA instalable y offline, búsqueda y guardados). Probado en local con Chrome. Última corrida (10/11/2026): Carrefour 1.643 ofertas, Coto 4.766 (solo súper), DAR 280.
 
-Falta: generar el sitio (HTML + PWA), el deploy a Cloudflare, la corrida diaria en GitHub Actions y el README.
+Falta: el primer deploy a Cloudflare, cargar los secrets y probar el workflow de GitHub Actions, y la URL real del sitio.
 
-**Próximo paso:** generar el sitio estático a partir de `data/` (tarea 1 de "Próximos pasos").
+**Próximo paso:** primer `wrangler deploy` (tarea 5). Necesita bajar `wrangler` (npm) con el OK del mantenedor.
 
 ## Estado por componente
 
@@ -38,11 +38,14 @@ Falta: generar el sitio (HTML + PWA), el deploy a Cloudflare, la corrida diaria 
 | Detector (sanidad + % descuento) | ✅ Básico | `src/detector.rs` |
 | Salida `data/` | ✅ Anda | `src/output.rs`, `data/offers/*.json`, `data/run.json` |
 | Config de cadenas | ✅ | `config/stores.toml` |
-| Tests | ✅ 11 tests con respuestas guardadas | `tests/fixtures/`, `#[cfg(test)]` en cada módulo |
-| Sitio estático (HTML, SEO) | ⏳ No empezado | |
-| PWA (manifest, service worker, aviso de instalación) | ⏳ No empezado | |
-| Deploy Cloudflare | ⏳ No empezado | |
-| GitHub Actions diario | ⏳ No empezado | |
+| Tests | ✅ 15 tests con respuestas guardadas | `tests/fixtures/`, `#[cfg(test)]` en cada módulo |
+| Control de caídas | ✅ Si una cadena trae menos de la mitad que ayer, se toma como error y se conserva el archivo anterior | `check_volume` en `src/main.rs` |
+| Sitio estático (HTML, SEO) | ✅ Portada, una sección paginada por cadena, datos abiertos, 404, JSON-LD, sitemap, robots, llms.txt | `src/site.rs`, `templates/`, `config/site.toml` |
+| PWA (manifest, service worker, aviso de instalación) | ✅ Chrome la ofrece para instalar; offline con precache | `web/manifest.webmanifest`, `web/sw.js`, `web/app.js` |
+| Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
+| Íconos | 🟡 Provisorios (un "%" blanco sobre negro) | `web/icons/` |
+| Deploy Cloudflare | 🟡 `wrangler.jsonc` listo, falta el primer deploy | `wrangler.jsonc` |
+| GitHub Actions diario | 🟡 Escrito, sin probar (faltan los secrets) | `.github/workflows/daily.yml` |
 | README para usuarios | 🟡 Versión mínima, falta el link a la web | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
@@ -52,10 +55,15 @@ Falta: generar el sitio (HTML + PWA), el deploy a Cloudflare, la corrida diaria 
 Requisito: Rust estable ([rustup](https://rustup.rs)). En Windows conviene WSL: compilar en Windows nativo pide las herramientas de C++ de Visual Studio, y WSL es el mismo Linux que usa GitHub Actions.
 
 ```bash
-cargo test                                   # tests con respuestas guardadas, sin red
-cargo run --release -- scrape                # todas las cadenas, escribe data/
+cargo test                                     # tests con respuestas guardadas, sin red
+cargo run --release -- scrape                  # todas las cadenas, escribe data/
 cargo run --release -- scrape --only dar,coto  # solo algunas
+cargo run --release -- build                   # genera el sitio en dist/ a partir de data/
+python -m http.server 8787 --directory dist    # verlo en http://127.0.0.1:8787 (sin _headers)
+npx wrangler@4 deploy                          # publicar dist/ en Cloudflare
 ```
+
+Cerrá el servidor local antes de volver a hacer `build`: en Windows deja `dist/` tomado y el build falla con "Permission denied".
 
 Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TARGET_DIR` a una carpeta del home de WSL: compilar sobre `/mnt/...` es lento.
 
@@ -86,26 +94,45 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | `data/` se commitea en `main` | Son los datos abiertos y el historial. Si el repo pesa demasiado, se mueve a una rama `data` sin perder historial. |
 | 11/11/2026 | Licencia MIT, a nombre de "Ofertas Rosario contributors" | Open source sin datos personales en el archivo. |
 | 11/11/2026 | `.gitattributes` con `eol=lf` | Los datos los escribe Linux (Actions); sin esto los diffs pueden marcar archivos enteros por fin de línea. |
+| 11/11/2026 | Coto: se excluyen las categorías Electro, Textil, Hogar y Aire Libre (`exclude_categories` en `config/stores.toml`) | El catálogo de Coto incluye de todo; sin filtro, lo más destacado eran velas y zapatillas. Bajó de 13.400 a 4.766 ofertas. |
+| 11/11/2026 | Plantillas con `minijinja` embebidas en el binario; assets (`web/`) también embebidos | `dist/` se genera con un solo binario, sin archivos sueltos que copiar. |
+| 11/11/2026 | Páginas de cadena de a 100 ofertas (`/coto/`, `/coto/pagina/2/`...), ordenadas por descuento | Páginas livianas en el celu y rastreables por buscadores. |
+| 11/11/2026 | Búsqueda en el navegador sobre `datos/buscar.json` (filas compactas) | Sin backend. 1,4 MB sin comprimir; Cloudflare lo sirve comprimido. |
+| 11/11/2026 | Service worker "network first" con caché de respaldo; la versión del caché cambia en cada build | Los precios cambian todos los días: primero la red, y si no hay señal, lo último guardado. |
+| 11/11/2026 | Control de caídas en el binario: menos de la mitad de ofertas que el día anterior = error | Un rediseño suele verse como "pocas ofertas", no como un error. Mejor mostrar datos de ayer que una cadena vacía. |
+| 11/11/2026 | Si alguna cadena falla, el workflow abre un issue en GitHub | Enterarse sin mirar los logs. |
 
 ## Próximos pasos
 
 En orden. Cuando cierres una, marcala y poné el commit.
 
-1. [ ] **Sitio estático**: comando `build` que lee `data/` y genera `dist/` con una portada (mejores ofertas del día), una página por cadena, `datos/hoy.json` y `datos/hoy.csv`. HTML con las ofertas escritas, `title`, `description`, canonical, Open Graph, `lang="es-AR"` y JSON-LD (`ItemList` + `Offer`). Sin estilos.
-2. [ ] **SEO técnico**: `sitemap.xml`, `robots.txt` (permitir GPTBot, ClaudeBot, PerplexityBot, Google-Extended), `llms.txt`.
-3. [ ] **PWA**: `manifest.webmanifest`, `sw.js` que guarda las ofertas del día para usar offline, botón "Instalar" (`beforeinstallprompt`) e instrucciones para iPhone. El aviso de instalación se oculta si la app ya corre instalada (`matchMedia('(display-mode: standalone)')`).
-4. [ ] **JS del navegador**: búsqueda y filtros sobre el JSON, favoritos en `localStorage`.
-5. [ ] **Deploy**: `wrangler.jsonc` con static assets y primer `wrangler deploy` manual (con una cuenta de Cloudflare logueada en `wrangler`).
-6. [ ] **GitHub Actions** (`.github/workflows/daily.yml`): cron diario, `cargo run --release -- scrape`, `build`, `wrangler deploy` con `CLOUDFLARE_API_TOKEN`, commit de `data/`. Verificar que las tres cadenas respondan desde las IPs de Azure.
-7. [ ] **Control de caídas**: que la corrida falle o abra un issue si una cadena trae menos del 50% de lo habitual.
+1. [x] **Sitio estático**: comando `build`, portada, una sección paginada por cadena, datos abiertos (`datos/<cadena>.json`, `datos/hoy.csv`), 404. HTML con las ofertas escritas, `title`, `description`, canonical, Open Graph, `lang="es-AR"` y JSON-LD. Sin estilos. (commit pendiente)
+2. [x] **SEO técnico**: `sitemap.xml`, `robots.txt` abierto a buscadores y bots de IA, `llms.txt`. (commit pendiente)
+3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (commit pendiente)
+4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (commit pendiente)
+5. [ ] **Deploy**: primer `npx wrangler@4 deploy` con la cuenta de Cloudflare logueada. Después, poner la URL real en `config/site.toml` y volver a hacer `build` + deploy.
+6. [ ] **GitHub Actions**: cargar los secrets `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID` en el repo, correrlo a mano (`workflow_dispatch`) y verificar que las tres cadenas respondan desde las IPs de Azure.
+7. [x] **Control de caídas**: menos de la mitad de ofertas que ayer = error; el workflow abre un issue si alguna cadena falla. (commit pendiente)
 8. [ ] **README**: completar con el link a la web, capturas y cómo instalarla en el celu.
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console y Bing Webmaster.
 10. [ ] Testeo de punta a punta. Recién después: estilos.
 
+## Lanzamiento (cuando el MVP esté terminado)
+
+El repo es **privado** hasta terminar el MVP. Al lanzarlo:
+
+- [ ] Hacer público el repo.
+- [ ] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios).
+- [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR).
+- [ ] Sacar el primer tag de release (`v0.1.0`).
+- [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web.
+
 ## Pendientes y dudas abiertas
 
-- [ ] User-Agent: poner la URL del repo cuando exista (`config/stores.toml`).
-- [ ] Coto: confirmar que la URL de producto que arma el scraper abre el producto en el sitio nuevo (SPA).
+- [ ] `config/site.toml`: `url` es provisoria hasta el primer deploy. Canonical, sitemap y `llms.txt` dependen de ella.
+- [ ] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Opciones: permitir el bot en la regla, o mover los datos a una rama `data`.
+- [ ] Íconos definitivos (van con los estilos, al final).
+- [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
 - [ ] Coto: guardar los descuentos por medio de pago (`product.dtoDescuentosMediosPago`) para la página de bancos.
 - [ ] Coto: confirmar que `sDisp` 1004 = disponible y 1001 = no disponible.
 - [ ] Carrefour: promos 2x1 (`Teasers` viene vacío en Intelligent Search).
@@ -117,8 +144,9 @@ En orden. Cuando cierres una, marcala y poné el commit.
 
 ## Problemas conocidos
 
-- `data/offers/coto.json` pesa ~6 MB. La web no tiene que cargarlo entero en el celu: partir por categoría o armar un `top.json` liviano (tarea 1).
+- El service worker precachea `datos/buscar.json` (1,4 MB sin comprimir) al instalarse. Si molesta en datos móviles, pasarlo a caché bajo demanda.
 - Una corrida completa tarda ~3,5 minutos, la mayor parte en Carrefour (pausa de 1 s entre requests, 12 categorías).
+- La ventana de Chrome maximizada no se deja achicar con la extensión; para ver ancho de celular se usó un iframe de 390 px.
 
 ## Commits
 
@@ -126,4 +154,4 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
-| (sin commits todavía) | 11/11/2026 | Repo inicializado con `git init`. Scrapers, docs, licencia y datos de la primera corrida esperando el primer commit. |
+| `c65fdc1` | 11/11/2026 | Primer commit: scrapers de Carrefour, Coto y DAR, detector, salida en `data/`, tests, docs, licencia y datos de la primera corrida. |

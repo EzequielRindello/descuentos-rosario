@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<meta name="description" content="{{ description }}">
+<link rel="canonical" href="{{ canonical }}">
+{% if prev_url %}<link rel="prev" href="{{ prev_url }}">
+{% endif %}{% if next_url %}<link rel="next" href="{{ next_url }}">
+{% endif %}<meta property="og:type" content="website">
+<meta property="og:locale" content="es_AR">
+<meta property="og:site_name" content="{{ site.name }}">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:url" content="{{ canonical }}">
+<meta property="og:image" content="{{ site.url }}/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="alternate" type="text/csv" href="/datos/hoy.csv" title="Ofertas del día en CSV">
+{% if json_ld %}<script type="application/ld+json">{{ json_ld|safe }}</script>
+{% endif %}<script src="/app.js" defer></script>
+</head>
+<body>
+<header>
+<p><a href="/">{{ site.name }}</a></p>
+<nav aria-label="Secciones">
+<ul>
+<li><a href="/">Inicio</a></li>
+{% for c in chains %}<li><a href="/{{ c.id }}/">{{ c.name }}</a></li>
+{% endfor %}<li><a href="/datos/">Datos abiertos</a></li>
+</ul>
+</nav>
+</header>
+
+<section id="instalar" hidden>
+<h2>Instalala en el celu</h2>
+<p>Funciona como una app y la podés usar sin señal adentro del súper.</p>
+<p><button type="button" id="instalar-boton" hidden>Instalar</button></p>
+<p id="instalar-ios" hidden>En iPhone: tocá <b>Compartir</b> y después <b>Agregar a inicio</b>.</p>
+<p id="instalar-android" hidden>En el menú del navegador (⋮) tocá <b>Instalar app</b> o <b>Agregar a pantalla principal</b>.</p>
+</section>
+
+<main>
+{% block main %}{% endblock %}
+</main>
+
+<footer>
+<p>Ofertas actualizadas el {{ updated }}. Los precios salen de las webs de cada cadena y pueden no coincidir con el de la góndola. Revisá siempre en el súper antes de comprar.</p>
+<p>{{ site.name }} es un proyecto independiente y de código abierto, sin relación con las cadenas. Los datos del día se pueden descargar en <a href="/datos/">Datos abiertos</a>.</p>
+</footer>
+</body>
+</html>

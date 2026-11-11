@@ -31,6 +31,7 @@ pub async fn scrape(config: &CotoConfig, http: &Http) -> Result<Vec<Offer>> {
     let page_size = config.page_size.to_string();
     let mut offers: BTreeMap<String, Offer> = BTreeMap::new();
     let mut offset: u64 = 0;
+    let mut excluded = 0usize;
     for page in 1..=MAX_PAGES {
         let offset_str = offset.to_string();
         let request = http.get(&url).query(&[
@@ -48,6 +49,10 @@ pub async fn scrape(config: &CotoConfig, http: &Http) -> Result<Vec<Offer>> {
         }
         offset += records.len() as u64;
         for record in &records {
+            if is_excluded(record, &config.exclude_categories) {
+                excluded += 1;
+                continue;
+            }
             if let Some(offer) = parse_record(record, &config.store) {
                 offers.entry(offer.id.clone()).or_insert(offer);
             }
@@ -57,7 +62,22 @@ pub async fn scrape(config: &CotoConfig, http: &Http) -> Result<Vec<Offer>> {
             break;
         }
     }
+    tracing::info!("coto: {excluded} records skipped as non-grocery categories");
     Ok(offers.into_values().collect())
+}
+
+/// True when any of the product's ancestor categories is in the exclusion list.
+fn is_excluded(record: &Value, exclude: &[String]) -> bool {
+    if exclude.is_empty() {
+        return false;
+    }
+    record
+        .pointer("/records/0/attributes/allAncestors.displayName")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .any(|ancestor| exclude.iter().any(|e| e == ancestor))
 }
 
 /// Endeca record filter: products available in the given store (1004 = available).
@@ -208,6 +228,16 @@ mod tests {
         assert_eq!(parse_plain_amount("2631.85"), Some(2631.85));
         assert_eq!(parse_plain_amount("$2631.85c/u"), Some(2631.85));
         assert_eq!(parse_plain_amount("$1860.00"), Some(1860.0));
+    }
+
+    #[test]
+    fn excludes_non_grocery_categories() {
+        let exclude = vec!["Textil".to_string(), "Hogar".to_string()];
+        let shoe = serde_json::json!({"records": [{"attributes": {"allAncestors.displayName": ["CotoDigital", "Textil", "Calzado"]}}]});
+        let milk = serde_json::json!({"records": [{"attributes": {"allAncestors.displayName": ["CotoDigital", "Frescos", "Leche"]}}]});
+        assert!(is_excluded(&shoe, &exclude));
+        assert!(!is_excluded(&milk, &exclude));
+        assert!(!is_excluded(&shoe, &[]));
     }
 
     #[test]

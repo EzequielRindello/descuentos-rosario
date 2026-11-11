@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Datos abiertos</h1>
+<p>Todas las ofertas del día se pueden descargar y usar libremente. Se actualizan todas las mañanas. Última actualización: {{ updated }}.</p>
+
+<h2>Archivos</h2>
+<ul>
+<li><a href="/datos/hoy.csv">hoy.csv</a>: todas las cadenas en un solo archivo CSV.</li>
+{% for c in chains %}<li><a href="/datos/{{ c.id }}.json">{{ c.id }}.json</a>: {{ c.count_label }} ofertas de {{ c.name }} ({{ c.store }}).</li>
+{% endfor %}</ul>
+
+<h2>Campos</h2>
+<p>Los precios están en <strong>centavos</strong> (números enteros): 186000 son $1.860.</p>
+<dl>
+<dt><code>chain</code></dt><dd>Cadena: carrefour, coto o dar.</dd>
+<dt><code>store</code></dt><dd>Sucursal o región de donde sale el precio.</dd>
+<dt><code>id</code></dt><dd>Código del producto en la cadena.</dd>
+<dt><code>ean</code></dt><dd>Código de barras, cuando la cadena lo publica.</dd>
+<dt><code>name</code></dt><dd>Nombre del producto, como lo escribe la cadena.</dd>
+<dt><code>price</code></dt><dd>Precio de oferta, en centavos.</dd>
+<dt><code>list_price</code></dt><dd>Precio anterior, en centavos. Vacío si la cadena no lo publica o si no es creíble.</dd>
+<dt><code>discount_pct</code></dt><dd>Descuento redondeado: 1 − precio / precio anterior.</dd>
+<dt><code>promo</code></dt><dd>Texto de la promoción (por ejemplo "70% 2da (Llevando 2)").</dd>
+<dt><code>url</code></dt><dd>Página del producto en la web de la cadena.</dd>
+<dt><code>source</code></dt><dd>De dónde sale el precio. Hoy siempre <code>web</code>: el precio online.</dd>
+</dl>
+<p>Los precios online pueden diferir de los de la góndola.</p>
+{% endblock %}

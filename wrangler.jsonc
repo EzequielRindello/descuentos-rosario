@@ -1,0 +1,11 @@
+{
+  // Worker que solo sirve archivos estáticos (no hay código de servidor).
+  // dist/ lo genera `cargo run --release -- build`.
+  "name": "ofertas-rosario",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}

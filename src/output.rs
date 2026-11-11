@@ -32,6 +32,13 @@ impl RunReport {
     }
 }
 
+/// Number of offers in the chain's current data file, if there is one.
+pub fn previous_count(data_dir: &Path, chain: Chain) -> Option<usize> {
+    let path = data_dir.join("offers").join(format!("{}.json", chain.id()));
+    let text = fs::read_to_string(path).ok()?;
+    serde_json::from_str::<Vec<serde_json::Value>>(&text).ok().map(|offers| offers.len())
+}
+
 /// Writes `data/offers/<chain>.json`, sorted by product id.
 pub fn write_offers(data_dir: &Path, chain: Chain, offers: &mut [Offer]) -> Result<()> {
     offers.sort_by(|a, b| a.id.cmp(&b.id));

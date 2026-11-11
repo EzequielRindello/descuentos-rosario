@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Ofertas de {{ chain.name }} en Rosario</h1>
+<p>{{ chain.store }}. {{ chain.count_label }} ofertas, actualizadas el {{ updated }}.{% if pages > 1 %} Página {{ page }} de {{ pages }}.{% endif %}</p>
+{% if not chain.has_list_prices %}<p>{{ chain.name }} no publica el precio anterior de sus ofertas, así que acá solo se muestra el precio final.</p>
+{% endif %}
+{% include "offers.html" %}
+
+{% if pages > 1 %}
+<nav aria-label="Páginas">
+<p>
+{% if prev_url %}<a href="{{ prev_url }}" rel="prev">Anterior</a>{% endif %}
+Página {{ page }} de {{ pages }}
+{% if next_url %}<a href="{{ next_url }}" rel="next">Siguiente</a>{% endif %}
+</p>
+<p>{% for n in range(1, pages + 1) %}{% if n == page %}<b>{{ n }}</b>{% else %}<a href="{{ chain_base }}{% if n > 1 %}pagina/{{ n }}/{% endif %}">{{ n }}</a>{% endif %} {% endfor %}</p>
+</nav>
+{% endif %}
+{% endblock %}

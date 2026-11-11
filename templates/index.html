@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Ofertas de supermercados en Rosario</h1>
+<p>Actualizado el {{ updated }}. Hoy hay <strong>{{ total_label }}</strong> ofertas de {% for c in chains %}{{ c.name }}{% if not loop.last %}{% if loop.revindex == 2 %} y {% else %}, {% endif %}{% endif %}{% endfor %}.</p>
+
+<section id="buscar">
+<h2>Buscar un producto</h2>
+<form role="search" action="/" onsubmit="return false">
+<label for="q">Producto</label>
+<input id="q" name="q" type="search" placeholder="yerba, leche, aceite..." autocomplete="off" disabled>
+</form>
+<noscript><p>La búsqueda necesita JavaScript. Podés ver todas las ofertas en la página de cada cadena.</p></noscript>
+<div id="resultados" aria-live="polite"></div>
+</section>
+
+<section id="guardados" hidden>
+<h2>Tus guardados</h2>
+<p>Se guardan solo en este dispositivo.</p>
+<div id="guardados-lista"></div>
+</section>
+
+{% for c in chains %}
+<section>
+<h2>Mejores ofertas de {{ c.name }}</h2>
+<p>{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
+{% with offers = c.top, start = none %}{% include "offers.html" %}{% endwith %}
+<p><a href="/{{ c.id }}/">Ver las {{ c.count_label }} ofertas de {{ c.name }}</a></p>
+</section>
+{% endfor %}
+
+<section>
+<h2>Cómo funciona</h2>
+<p>Todas las mañanas se revisan las webs de cada supermercado y se guardan las ofertas con precio de Rosario: precio de oferta, precio anterior cuando la cadena lo publica, y promociones como 2x1 o 70% en la segunda unidad.</p>
+<p>Los descuentos se calculan contra el precio anterior que muestra cada cadena. Si ese precio no es creíble (más de 5 veces el actual), se descarta.</p>
+</section>
+{% endblock %}

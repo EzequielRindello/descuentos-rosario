@@ -1,0 +1,14 @@
+# Configuración de la web.
+
+# URL pública del sitio, sin barra al final. Se usa en canonical, sitemap y llms.txt.
+# Cambiar por la URL real después del primer deploy (o por el dominio propio).
+url = "https://ofertas-rosario.workers.dev"
+
+name = "Ofertas Rosario"
+description = "Las ofertas de los supermercados de Rosario, todos los días: Coto, Carrefour y DAR. Precio de oferta, precio anterior y descuento, en un solo lugar."
+
+# Ofertas por página en las páginas de cada cadena.
+per_page = 100
+
+# Ofertas por cadena en la portada.
+home_per_chain = 20

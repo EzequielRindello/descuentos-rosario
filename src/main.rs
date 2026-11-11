@@ -4,6 +4,7 @@ mod http;
 mod model;
 mod output;
 mod scrapers;
+mod site;
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -17,22 +18,34 @@ use crate::model::{Chain, Offer};
 use crate::output::{ChainReport, RunReport};
 
 const USAGE: &str = "\
-Usage: ofertas-rosario scrape [--only carrefour,coto,dar] [--config config/stores.toml] [--data data]
+Usage:
+  ofertas-rosario scrape [--only carrefour,coto,dar] [--config config/stores.toml] [--data data]
+  ofertas-rosario build  [--config config/stores.toml] [--site config/site.toml] [--data data] [--out dist]
 
 Commands:
-  scrape   Read today's offers from each chain and write data/offers/<chain>.json and data/run.json";
+  scrape   Read today's offers from each chain and write data/offers/<chain>.json and data/run.json
+  build    Generate the static site from data/ into dist/";
 
 struct Args {
     command: String,
     only: Option<Vec<Chain>>,
     config: PathBuf,
+    site: PathBuf,
     data: PathBuf,
+    out: PathBuf,
 }
 
 fn parse_args() -> Result<Args> {
     let mut args = std::env::args().skip(1);
     let command = args.next().unwrap_or_default();
-    let mut parsed = Args { command, only: None, config: PathBuf::from("config/stores.toml"), data: PathBuf::from("data") };
+    let mut parsed = Args {
+        command,
+        only: None,
+        config: PathBuf::from("config/stores.toml"),
+        site: PathBuf::from("config/site.toml"),
+        data: PathBuf::from("data"),
+        out: PathBuf::from("dist"),
+    };
     while let Some(flag) = args.next() {
         let mut value = || args.next().with_context(|| format!("missing value for {flag}"));
         match flag.as_str() {
@@ -45,6 +58,8 @@ fn parse_args() -> Result<Args> {
             }
             "--config" => parsed.config = PathBuf::from(value()?),
             "--data" => parsed.data = PathBuf::from(value()?),
+            "--site" => parsed.site = PathBuf::from(value()?),
+            "--out" => parsed.out = PathBuf::from(value()?),
             other => bail!("unknown argument {other:?}\n\n{USAGE}"),
         }
     }
@@ -57,6 +72,11 @@ async fn main() -> Result<()> {
     let args = parse_args()?;
     match args.command.as_str() {
         "scrape" => scrape(args).await,
+        "build" => {
+            let config = Config::load(&args.config)?;
+            let site_config = site::SiteConfig::load(&args.site)?;
+            site::build(&args.data, &args.out, &site_config, &config)
+        }
         _ => {
             println!("{USAGE}");
             Ok(())
@@ -80,6 +100,7 @@ async fn scrape(args: Args) -> Result<()> {
     let mut report = RunReport::new(now);
     for (chain, result) in [(Chain::Carrefour, carrefour), (Chain::Coto, coto), (Chain::Dar, dar)] {
         let Some((result, seconds)) = result else { continue };
+        let result = result.and_then(|offers| check_volume(&args.data, chain, offers));
         let chain_report = match result {
             Ok(mut offers) => {
                 detector::finalize(&mut offers);
@@ -103,6 +124,19 @@ async fn scrape(args: Args) -> Result<()> {
         bail!("every chain failed");
     }
     Ok(())
+}
+
+/// A site redesign usually shows up as far fewer offers, not as an error. If a chain brings
+/// less than half of what the current file has, treat it as a failure and keep the old file.
+fn check_volume(data_dir: &std::path::Path, chain: Chain, offers: Vec<Offer>) -> Result<Vec<Offer>> {
+    const MIN_PREVIOUS: usize = 20;
+    if let Some(previous) = output::previous_count(data_dir, chain)
+        && previous >= MIN_PREVIOUS
+        && offers.len() * 2 < previous
+    {
+        bail!("brought {} offers, less than half of the previous {previous}; keeping the previous file", offers.len());
+    }
+    Ok(offers)
 }
 
 async fn run_chain(enabled: bool, config: &Config, chain: Chain) -> Option<(Result<Vec<Offer>>, u64)> {

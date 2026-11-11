@@ -1,0 +1,11 @@
+<ol class="ofertas"{% if start %} start="{{ start }}"{% endif %}>
+{% for o in offers %}<li data-id="{{ o.key }}">
+<b>{{ o.name }}</b>
+· {{ o.chain_name }}
+· <strong>{{ o.price }}</strong>
+{% if o.list_price %}· antes <s>{{ o.list_price }}</s> · <em>-{{ o.discount_pct }}%</em>
+{% endif %}{% if o.promo %}· {{ o.promo }}
+{% endif %}{% if o.url %}· <a href="{{ o.url }}" rel="nofollow noopener" target="_blank">ver en {{ o.chain_name }}</a>
+{% endif %}<button type="button" data-fav="{{ o.key }}" aria-pressed="false" hidden>Guardar</button>
+</li>
+{% endfor %}</ol>

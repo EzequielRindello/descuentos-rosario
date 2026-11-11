@@ -20,6 +20,15 @@ impl Chain {
         }
     }
 
+    /// Name shown to users.
+    pub fn name(self) -> &'static str {
+        match self {
+            Chain::Carrefour => "Carrefour",
+            Chain::Coto => "Coto",
+            Chain::Dar => "DAR",
+        }
+    }
+
     pub fn from_id(id: &str) -> Option<Chain> {
         Chain::ALL.into_iter().find(|c| c.id() == id)
     }

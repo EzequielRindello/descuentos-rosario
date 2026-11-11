@@ -27,6 +27,9 @@ pub struct CotoConfig {
     pub store: String,
     pub store_id: String,
     pub page_size: u32,
+    /// Top-level Coto categories that are not groceries (matched against the product's ancestors).
+    #[serde(default)]
+    pub exclude_categories: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
