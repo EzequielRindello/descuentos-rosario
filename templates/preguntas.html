@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Preguntas frecuentes</h1>
+
+<h2>¿Qué es {{ site.name }}?</h2>
+<p>Una web que todas las mañanas junta las ofertas de los supermercados de Rosario y las muestra en un solo lugar, con el precio de oferta, el precio anterior y el descuento. Es gratis, no tiene publicidad y es de código abierto.</p>
+
+<h2>¿Tienen relación con los supermercados?</h2>
+<p>No. Es un proyecto independiente. No trabajamos para ninguna cadena ni recibimos nada de ellas. Los nombres de las cadenas se usan solo para decir de dónde sale cada precio.</p>
+
+<h2>¿De dónde salen los precios?</h2>
+<p>De las webs públicas de cada cadena, con el precio online de una sucursal o región de Rosario:</p>
+<ul>
+{% for c in chains %}<li>{{ c.name }}: {{ c.store }}.</li>
+{% endfor %}</ul>
+
+<h2>¿El precio es el mismo que en la góndola?</h2>
+<p>No siempre. Es el precio que la cadena publica en su web esa mañana, y puede cambiar durante el día o ser distinto en la tienda. Revisá siempre el precio en el súper antes de comprar.</p>
+
+<h2>¿Cada cuánto se actualiza?</h2>
+<p>Una vez por día, a la mañana temprano. Arriba de cada página y en el pie dice cuándo fue la última actualización.</p>
+
+<h2>¿Por qué una cadena aparece vacía?</h2>
+<p>Porque ese día no pudimos leer su web. En vez de mostrar las ofertas de ayer, que quizás ya no valen, la sección queda vacía hasta la próxima actualización.</p>
+
+<h2>¿Cómo se calcula el descuento?</h2>
+<p>Contra el precio anterior que muestra la cadena: descuento = 1 − precio de oferta / precio anterior. Si el precio anterior no es creíble (más de 5 veces el actual), no se muestra. Las promos como 2x1 o 70% en la segunda unidad se muestran con el texto de la cadena.</p>
+
+<h2>¿Por qué algunas ofertas no tienen descuento?</h2>
+<p>Porque la cadena no publica el precio anterior. DAR, por ejemplo, solo muestra el precio final.</p>
+
+<h2>¿Por qué no está mi supermercado?</h2>
+<p>Solo sumamos cadenas que publican sus precios en la web y permiten leerlos (respetamos su archivo <code>robots.txt</code>). Algunas no tienen web de precios y otras no permiten leerla de forma automática.</p>
+
+<h2>¿Puedo comprar desde acá?</h2>
+<p>No. No vendemos nada ni intermediamos. Cada oferta tiene un enlace a la web de la cadena, cuando la cadena lo publica.</p>
+
+<h2>¿Tengo que registrarme? ¿Guardan mis datos?</h2>
+<p>No hace falta registrarse y no guardamos datos tuyos. Lo que marcás como guardado queda solo en tu dispositivo. Más detalles en <a href="/privacidad/">Privacidad</a>.</p>
+
+<h2>¿Cómo la instalo en el celu?</h2>
+<p>En Android (Chrome), tocá <b>Instalar</b> cuando aparezca el aviso, o en el menú del navegador (⋮) tocá <b>Instalar app</b>. En iPhone (Safari), tocá <b>Compartir</b> y después <b>Agregar a inicio</b>.</p>
+
+<h2>¿Funciona sin señal?</h2>
+<p>Sí, con la última versión que abriste con conexión. Fijate la fecha de actualización: sin señal no se pueden traer las ofertas nuevas.</p>
+
+<h2>¿Puedo usar los datos?</h2>
+<p>Sí, están en <a href="/datos/">Datos abiertos</a> para usarlos libremente. Quien los use es responsable de lo que haga con ellos.</p>
+{% if site.contact %}
+<h2>¿Cómo me comunico?</h2>
+<p>{{ site.contact }}</p>
+{% endif %}
+{% endblock %}

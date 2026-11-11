@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block main %}
+<h1>Privacidad</h1>
+<p>Corto: no te pedimos datos, no te seguimos y no vendemos nada. Última actualización: 11/11/2026.</p>
+
+<h2>Qué no hacemos</h2>
+<ul>
+<li>No hay cuentas, registro ni formularios.</li>
+<li>No usamos cookies.</li>
+<li>No usamos herramientas de analítica, publicidad ni rastreadores de terceros.</li>
+<li>No vendemos ni compartimos datos, porque no los tenemos.</li>
+</ul>
+
+<h2>Qué queda en tu dispositivo</h2>
+<p>Las ofertas que marcás como guardadas y la copia para usar el sitio sin señal se guardan en tu navegador (almacenamiento local y caché). Nunca nos llegan. Las podés borrar cuando quieras desde la configuración del navegador, borrando los datos de este sitio.</p>
+
+<h2>El servidor</h2>
+<p>El sitio está alojado en Cloudflare. Como cualquier servidor web, Cloudflare procesa datos técnicos de cada visita (por ejemplo, la dirección IP y el tipo de navegador) para entregar las páginas y protegerlas de ataques. Nosotros no usamos esos datos para identificarte. Más información en la <a href="https://www.cloudflare.com/es-es/privacypolicy/" rel="noopener">política de privacidad de Cloudflare</a>.</p>
+
+<h2>Enlaces a otras webs</h2>
+<p>Los enlaces "ver en ..." llevan a la web de cada cadena, que tiene su propia política de privacidad.</p>
+{% if site.contact %}
+<h2>Contacto</h2>
+<p>{{ site.contact }}</p>
+{% endif %}
+{% endblock %}

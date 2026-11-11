@@ -65,7 +65,8 @@ Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y
 | Sitio estático (HTML, SEO) | ✅ Portada, una sección paginada por cadena, datos abiertos, 404, JSON-LD, sitemap, robots, llms.txt | `src/site.rs`, `templates/`, `config/site.toml` |
 | PWA (manifest, service worker, aviso de instalación) | ✅ Chrome la ofrece para instalar; offline con precache | `web/manifest.webmanifest`, `web/sw.js`, `web/app.js` |
 | Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
-| Íconos | 🟡 Provisorios (un "%" blanco sobre negro) | `web/icons/` |
+| Íconos | 🟡 Provisorios (flecha de cursor blanca sobre negro, más `favicon.svg`) | `web/icons/` |
+| Páginas legales | ✅ Preguntas frecuentes, términos y privacidad. Falta el canal de contacto y la revisión legal | `templates/preguntas.html`, `terminos.html`, `privacidad.html` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
 | GitHub Actions diario | 🟡 Corrida manual completa OK (11/11); falta ver que el cron dispare solo (12/11) | `.github/workflows/daily.yml` |
 | README para usuarios | ✅ Link, cómo instalarla y datos abiertos. Las capturas van después de los estilos | `README.md` |
@@ -131,6 +132,10 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Si una cadena falla, el sitio la muestra vacía con un aviso ("Hoy no pudimos leer las ofertas de ..."), también en búsqueda y datos abiertos. `data/` igual conserva su último archivo bueno | La web muestra las ofertas del día, sean pocas o muchas; las de ayer pueden ya no valer. `data/` guarda el archivo para comparar y como historial. Lo decide `run.json` (`ok: false`). |
 | 11/11/2026 | Si fallan todas las cadenas, el workflow igual genera y publica el sitio (y commitea `run.json`); la corrida queda en rojo | Antes cortaba en el scrape y la web se quedaba entera con las ofertas de ayer. |
 | 11/11/2026 | `/datos/*` con `max-age=0, must-revalidate` en vez de una hora de caché | Con una hora, la búsqueda podía mostrar ofertas de ayer después de la actualización. Con ETag, revalidar cuesta un 304. |
+| 11/11/2026 | Páginas de preguntas frecuentes, términos y privacidad, enlazadas desde el pie | Dejar por escrito que el sitio es informativo, sin relación con las cadenas, sin garantías, y cómo se leen los datos. No reemplaza una revisión legal (tarea 12). |
+| 11/11/2026 | El contacto es un campo opcional de `config/site.toml` que no se muestra si está vacío | No publicar datos personales; el canal se define aparte (tarea 11). |
+| 11/11/2026 | CSP estricta (`'self'` para todo, sin inline) | El sitio no carga nada de terceros. Si un día se cuela HTML o JS ajeno, el navegador no lo ejecuta. El JSON-LD inline no es JS ejecutable y no lo frena. |
+| 11/11/2026 | Íconos generados con un script de Python sin dependencias (sin Pillow) | No descargar paquetes para algo provisorio. |
 | 11/11/2026 | Capturas del README recién después de los estilos | Sin estilos no muestran nada útil. |
 | 11/11/2026 | El workflow no hace `pull --rebase` antes de pushear `data/` | Si se pushea algo mientras corre, que falle y quede registrado; se aprende de eso. Los datos de ese día igual quedan publicados en la web. |
 | 11/11/2026 | El subdominio `workers.dev` lleva el nombre del mantenedor y se deja así por ahora (excepción a "sin datos personales") | Cambiarlo no aporta hasta tener dominio propio; se reemplaza junto con el dominio. |
@@ -146,9 +151,19 @@ En orden. Cuando cierres una, marcala y poné el commit.
 5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
 6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11 completa: las tres cadenas responden desde GitHub, deploy y commit de `data/` andan (`c287d33`). Falta confirmar que el cron dispare solo (12/11/2026, 07:00).
 7. [x] **Control de caídas**: 0 ofertas = error (al principio era "menos de la mitad que ayer"); el workflow abre un issue si alguna cadena falla. (`c2bbbf9`, ajustado después)
-8. [ ] **README**: cómo instalarla en el celu y datos abiertos, hecho (commit pendiente). Faltan las capturas, que van después de los estilos.
-9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console y Bing Webmaster.
-10. [ ] Testeo de punta a punta. Recién después: estilos.
+8. [ ] **README**: cómo instalarla en el celu y datos abiertos, hecho (`085a52f`). Faltan las capturas, que van después de los estilos.
+9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console (propiedad "Prefijo de URL", verificación por archivo HTML en `web/`) y Bing Webmaster (importar desde Google). **Esperar** a la revisión de términos de las cadenas y al dominio propio.
+10. [x] **Páginas legales e informativas**: `/preguntas-frecuentes/`, `/terminos/` (aviso legal: sin relación con las cadenas, precios informativos, sin garantías, cómo se leen los datos, pedidos de retiro, ley argentina) y `/privacidad/` (sin cookies ni analítica; verificado que Cloudflare no pone cookies). Links en el pie y en el sitemap. 404 verificado en producción. (commit pendiente)
+11. [ ] **Canal de contacto** que no sea un dato personal (un mail dedicado, o los issues de GitHub cuando el repo sea público). Se carga en `contact` de `config/site.toml` y aparece solo en preguntas, términos y privacidad. Hace falta para los pedidos de retiro de las cadenas.
+12. [ ] **Revisión legal**: los textos de términos y privacidad los escribió un agente, no un abogado. Que los revise alguien con matrícula antes del lanzamiento, junto con los términos de uso de cada cadena.
+13. [x] **Favicon**: flecha de cursor blanca sobre negro (`web/icons/favicon.svg` + PNG 192/512/maskable). Provisorio hasta los estilos. (commit pendiente)
+14. [x] **Seguridad, arreglos rápidos**: headers en `web/_headers` (CSP que solo permite el propio sitio, `frame-ancestors 'none'`, Permissions-Policy, COOP, HSTS) y links a las cadenas solo si son `https://`. Probado en local con un servidor que aplica `_headers`: sin errores de CSP. Falta verlo en producción. (commit pendiente)
+15. [ ] **Seguridad del workflow**: fijar las actions por SHA (`actions/checkout`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache`) y `wrangler` a una versión exacta; sumar Dependabot (`.github/dependabot.yml`) para Cargo y Actions. Hoy, una versión nueva comprometida de cualquiera de ellas correría con permiso de escribir en el repo y con el token de Cloudflare.
+16. [ ] **Datos viejos en caché**: si el celu muestra páginas guardadas (sin señal, o la red tarda más de 4 s), avisarlo: "Sin conexión: estas ofertas son del DD/MM". Hoy el service worker cae al caché sin decir nada. La revalidación de `datos/` ya está (`max-age=0, must-revalidate`).
+17. [ ] **Filtros y orden (UX)**: en la búsqueda y en las páginas de cadena, filtrar por descuento mínimo y tipo de promo (2x1, 2da unidad) y ordenar por descuento o precio. Por categoría hace falta guardar la categoría en `Offer` (ver Pendientes). Definir el diseño antes de implementarlo.
+18. [ ] **Performance**: el service worker precachea `buscar.json` (1,4 MB sin comprimir) en la primera visita; pasarlo a bajo demanda. Medir con Lighthouse (pide `npx lighthouse`, consultar antes de descargarlo). Las páginas de cadena pesan ~100 KB de HTML.
+19. [ ] **Rate limiting**: con `workers.dev` no se puede. Los archivos estáticos de Workers son gratis y sin límite, y Cloudflare frena los DDoS solo, así que hoy no hay costo ni riesgo de quedarse sin cuota. Con dominio propio, sumar una regla de rate limiting de Cloudflare (el plan gratis trae una).
+20. [ ] Testeo de punta a punta (búsqueda, guardados, paginado, offline, instalar, en celu y escritorio). Recién después: estilos.
 
 ## Lanzamiento (cuando el MVP esté terminado)
 
@@ -188,6 +203,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `085a52f` | 11/11/2026 | Cadena que falla se publica vacía con aviso; si fallan todas, el workflow igual publica; `datos/` sin caché de una hora; README con cómo instalarla. |
 | `6fa4438` | 11/11/2026 | STATUS con el hash de `1e5ae5f`. |
 | `1e5ae5f` | 11/11/2026 | Coto: precio regular desde "Precio Contado" en Otras Ofertas. Control de caídas: solo 0 ofertas es error. |
 | `712261f` | 11/11/2026 | Docs: `context.md` y `AGENTS.md` alineados con el código; decisión sobre el subdominio. |

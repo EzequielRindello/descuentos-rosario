@@ -24,6 +24,9 @@ pub struct SiteConfig {
     pub description: String,
     pub per_page: usize,
     pub home_per_chain: usize,
+    /// How to reach the maintainers (shown in FAQ, terms and privacy). Hidden when empty.
+    #[serde(default)]
+    pub contact: String,
 }
 
 impl SiteConfig {
@@ -164,6 +167,22 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     })))?;
     write_data_files(out_dir, &chains)?;
 
+    // Info pages: FAQ, terms, privacy.
+    let info_pages = [
+        ("preguntas.html", "preguntas-frecuentes", "Preguntas frecuentes", "De dónde salen los precios, cada cuánto se actualiza, cómo se calcula el descuento y más."),
+        ("terminos.html", "terminos", "Términos de uso y aviso legal", "Términos de uso de Ofertas Rosario: sitio informativo, sin relación con las cadenas, precios informativos."),
+        ("privacidad.html", "privacidad", "Privacidad", "Ofertas Rosario no pide registro, no usa cookies ni analítica y no recolecta datos personales."),
+    ];
+    for (template, slug, title, description) in info_pages {
+        let url = format!("{}/{slug}/", site.url);
+        sitemap.push(url.clone());
+        render(&env, template, &out_dir.join(slug).join("index.html"), &context(site, &updated, &chain_views, json!({
+            "title": format!("{title} | {}", site.name),
+            "description": description,
+            "canonical": url,
+        })))?;
+    }
+
     render(&env, "404.html", &out_dir.join("404.html"), &context(site, &updated, &chain_views, json!({
         "title": format!("Página no encontrada | {}", site.name),
         "description": site.description,
@@ -185,6 +204,9 @@ fn environment() -> Result<Environment<'static>> {
     env.add_template("chain.html", include_str!("../templates/chain.html"))?;
     env.add_template("datos.html", include_str!("../templates/datos.html"))?;
     env.add_template("404.html", include_str!("../templates/404.html"))?;
+    env.add_template("preguntas.html", include_str!("../templates/preguntas.html"))?;
+    env.add_template("terminos.html", include_str!("../templates/terminos.html"))?;
+    env.add_template("privacidad.html", include_str!("../templates/privacidad.html"))?;
     Ok(env)
 }
 
@@ -249,6 +271,12 @@ fn load_chains(data_dir: &Path, stores: &Config, report: Option<&RunReport>) -> 
             let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
             serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?
         };
+        // Defense in depth: only https links reach the pages, never javascript: or data: URLs.
+        for offer in &mut offers {
+            if offer.url.as_deref().is_some_and(|url| !url.starts_with("https://")) {
+                offer.url = None;
+            }
+        }
         offers.sort_by(rank);
         let store = match chain {
             Chain::Carrefour => stores.carrefour.store.clone(),
@@ -390,6 +418,7 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     fs::write(icons.join("icon-192.png"), include_bytes!("../web/icons/icon-192.png"))?;
     fs::write(icons.join("icon-512.png"), include_bytes!("../web/icons/icon-512.png"))?;
     fs::write(icons.join("maskable-512.png"), include_bytes!("../web/icons/maskable-512.png"))?;
+    fs::write(icons.join("favicon.svg"), include_str!("../web/icons/favicon.svg"))?;
 
     // Offline: the shell, the search index and the first page of each chain.
     let mut precache = vec!["/".to_string(), "/app.js".into(), "/manifest.webmanifest".into(), "/datos/buscar.json".into(), "/icons/icon-192.png".into()];

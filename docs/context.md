@@ -36,10 +36,11 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/<cadena>/`, `/<cadena>/pagina/N/` | Todas las ofertas de la cadena, de a 100, ordenadas por descuento. |
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
+| `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
 | `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url]`. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
-| `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto y `max-age=0, must-revalidate` (el HTML ya sale así por defecto). |
+| `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto y `max-age=0, must-revalidate` (el HTML ya sale así por defecto). Para todo: CSP solo `'self'` (nada de terceros ni inline), `frame-ancestors 'none'`, Permissions-Policy, COOP y HSTS. Si se suma un recurso externo o un estilo inline, hay que tocar la CSP. |
 | `/404.html` | Página de error (Workers la usa con `not_found_handling: "404-page"`). |
 
 Si `run.json` marca una cadena con `ok: false`, el build la publica sin ofertas: su sección y la portada dicen "Hoy no pudimos leer las ofertas de ...", y queda fuera de `buscar.json` y `hoy.csv` (`datos/<cadena>.json` sale como `[]`). Plantilla del aviso: `templates/failed.html`.
