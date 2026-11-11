@@ -3,7 +3,6 @@
 'use strict';
 
 const SAVED_KEY = 'ofertas-rosario:guardados';
-const MAX_RESULTS = 50;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -177,25 +176,100 @@ function renderList(rows) {
   return list;
 }
 
-// ---------- Search ----------
+// ---------- Search and filters ----------
+// Everything runs over /datos/buscar.json (all of today's offers). The filters live in the URL
+// (?q=&cadena=&min=&promo=&orden=) so a filtered view can be shared or restored with "back".
 
-function setupSearch() {
-  const input = $('#q');
-  const results = $('#resultados');
-  if (!input || !results) return;
-  input.disabled = false;
+const PAGE_SIZE = 50;
+let shown = PAGE_SIZE;
 
-  let timer = null;
-  input.addEventListener('focus', () => loadIndex().catch(() => {}), { once: true });
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => search(input.value, results), 200);
-  });
+// Kind of promotion, from the chain's promo text and the discount.
+function promoKind(row) {
+  const promo = row[6] || '';
+  if (/\d\s*x\s*\d/i.test(promo)) return 'nxm';
+  if (/2da/i.test(promo)) return '2da';
+  if (/llevando/i.test(promo)) return 'varias';
+  return row[5] ? 'rebaja' : '';
 }
 
-async function search(query, results) {
-  const words = normalize(query).split(/\s+/).filter((word) => word.length > 1);
-  if (!words.length) {
+function chainBoxes() {
+  return [...document.querySelectorAll('#filtros input[name="cadena"]')];
+}
+
+function readFilters() {
+  const chains = chainBoxes().filter((box) => box.checked).map((box) => box.value);
+  return {
+    q: $('#q').value,
+    chains,
+    allChains: chains.length === chainBoxes().length,
+    min: Number($('#f-min').value) || 0,
+    promo: $('#f-promo').value,
+    orden: $('#f-orden').value,
+  };
+}
+
+function filtersFromUrl() {
+  const params = new URLSearchParams(location.search);
+  $('#q').value = params.get('q') || '';
+  const wanted = (params.get('cadena') || '').split(',').filter(Boolean);
+  if (wanted.length) chainBoxes().forEach((box) => (box.checked = wanted.includes(box.value)));
+  const setSelect = (id, value) => {
+    const select = $(id);
+    if ([...select.options].some((option) => option.value === value)) select.value = value;
+  };
+  setSelect('#f-min', params.get('min') || '');
+  setSelect('#f-promo', params.get('promo') || '');
+  setSelect('#f-orden', params.get('orden') || '');
+}
+
+function filtersToUrl(filters) {
+  const params = new URLSearchParams();
+  if (filters.q.trim()) params.set('q', filters.q.trim());
+  if (!filters.allChains) params.set('cadena', filters.chains.join(','));
+  if (filters.min) params.set('min', String(filters.min));
+  if (filters.promo) params.set('promo', filters.promo);
+  if (filters.orden) params.set('orden', filters.orden);
+  const query = params.toString().replace(/%2C/gi, ',');
+  history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+}
+
+function setupSearch() {
+  const form = $('#filtros');
+  const results = $('#resultados');
+  if (!form || !results) return;
+  form.querySelectorAll('[disabled]').forEach((control) => (control.disabled = false));
+  filtersFromUrl();
+
+  let timer = null;
+  const update = () => {
+    shown = PAGE_SIZE;
+    const filters = readFilters();
+    filtersToUrl(filters);
+    renderResults(filters, results);
+  };
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    update();
+  });
+  form.addEventListener('change', update);
+  $('#q').addEventListener('focus', () => loadIndex().catch(() => {}), { once: true });
+  $('#q').addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(update, 200);
+  });
+  if (location.search) renderResults(readFilters(), results);
+}
+
+const SORTS = {
+  '': (a, b) => (b[5] || 0) - (a[5] || 0) || a[3] - b[3],
+  precio: (a, b) => a[3] - b[3],
+  nombre: (a, b) => a[2].localeCompare(b[2], 'es'),
+};
+
+async function renderResults(filters, results) {
+  const words = normalize(filters.q).split(/\s+/).filter((word) => word.length > 1);
+  const filtering = words.length || !filters.allChains || filters.min || filters.promo;
+  if (!filtering) {
     results.replaceChildren();
     return;
   }
@@ -206,17 +280,38 @@ async function search(query, results) {
     results.textContent = 'No se pudieron cargar las ofertas. Probá de nuevo en un rato.';
     return;
   }
+  const chains = new Set(filters.chains);
   const matches = index
     .filter((entry) => words.every((word) => entry.text.includes(word)))
     .map((entry) => entry.row)
-    .sort((a, b) => (b[5] || 0) - (a[5] || 0) || a[3] - b[3]);
+    .filter((row) => chains.has(row[0].split(':')[0]))
+    .filter((row) => !filters.min || (row[5] || 0) >= filters.min)
+    .filter((row) => !filters.promo || promoKind(row) === filters.promo)
+    .sort(SORTS[filters.orden] || SORTS['']);
 
+  const parts = [];
   const summary = document.createElement('p');
   summary.textContent = matches.length
-    ? matches.length + (matches.length === 1 ? ' oferta' : ' ofertas') + (matches.length > MAX_RESULTS ? ', se muestran las ' + MAX_RESULTS + ' con más descuento' : '') + '.'
-    : 'No hay ofertas para "' + query.trim() + '" hoy.';
-  results.replaceChildren(summary);
-  if (matches.length) results.append(renderList(matches.slice(0, MAX_RESULTS)));
+    ? matches.length + (matches.length === 1 ? ' oferta' : ' ofertas') + (matches.length > shown ? '. Mostrando ' + shown + '.' : '.')
+    : 'No hay ofertas con estos filtros hoy.';
+  parts.push(summary);
+  if ((filters.min || filters.promo === 'rebaja') && chains.has('dar')) {
+    const note = document.createElement('p');
+    note.textContent = 'DAR no publica precio anterior: no aparece al filtrar por descuento.';
+    parts.push(note);
+  }
+  if (matches.length) parts.push(renderList(matches.slice(0, shown)));
+  if (matches.length > shown) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.textContent = 'Mostrar ' + Math.min(PAGE_SIZE, matches.length - shown) + ' más';
+    more.addEventListener('click', () => {
+      shown += PAGE_SIZE;
+      renderResults(filters, results);
+    });
+    parts.push(more);
+  }
+  results.replaceChildren(...parts);
 }
 
 // ---------- Saved offers (only on this device) ----------

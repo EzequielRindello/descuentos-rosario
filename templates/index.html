@@ -4,12 +4,39 @@
 <p>Actualizado el {{ updated }}. {% if available_label %}Hoy hay <strong>{{ total_label }}</strong> ofertas de {{ available_label }}.{% else %}Hoy no pudimos leer las ofertas de ninguna cadena.{% endif %}</p>
 
 <section id="buscar">
-<h2>Buscar un producto</h2>
-<form role="search" action="/" onsubmit="return false">
-<label for="q">Producto</label>
-<input id="q" name="q" type="search" placeholder="yerba, leche, aceite..." autocomplete="off" disabled>
+<h2>Buscar y filtrar</h2>
+<form id="filtros" role="search" action="/">
+<p><label for="q">Producto</label>
+<input id="q" name="q" type="search" placeholder="yerba, leche, aceite..." autocomplete="off" disabled></p>
+<fieldset>
+<legend>Cadena</legend>
+{% for c in chains %}{% if not c.failed %}<label><input type="checkbox" name="cadena" value="{{ c.id }}" checked disabled> {{ c.name }}</label>
+{% endif %}{% endfor %}</fieldset>
+<p><label for="f-min">Descuento</label>
+<select id="f-min" name="min" disabled>
+<option value="">Cualquiera</option>
+<option value="10">10% o más</option>
+<option value="20">20% o más</option>
+<option value="30">30% o más</option>
+<option value="40">40% o más</option>
+<option value="50">50% o más</option>
+</select></p>
+<p><label for="f-promo">Promo</label>
+<select id="f-promo" name="promo" disabled>
+<option value="">Todas</option>
+<option value="rebaja">Precio rebajado</option>
+<option value="nxm">2x1 y 3x2</option>
+<option value="2da">2da unidad</option>
+<option value="varias">Llevando varias</option>
+</select></p>
+<p><label for="f-orden">Ordenar</label>
+<select id="f-orden" name="orden" disabled>
+<option value="">Mayor descuento</option>
+<option value="precio">Menor precio</option>
+<option value="nombre">Nombre</option>
+</select></p>
 </form>
-<noscript><p>La búsqueda necesita JavaScript. Podés ver todas las ofertas en la página de cada cadena.</p></noscript>
+<noscript><p>La búsqueda y los filtros necesitan JavaScript. Podés ver todas las ofertas en la página de cada cadena.</p></noscript>
 <div id="resultados" aria-live="polite"></div>
 </section>
 

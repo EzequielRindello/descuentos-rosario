@@ -32,7 +32,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 
 | Ruta | Qué es |
 | --- | --- |
-| `/` | Portada: búsqueda, guardados, las 20 mejores ofertas de cada cadena. |
+| `/` | Portada: búsqueda con filtros, guardados, las 20 mejores ofertas de cada cadena. Los filtros van en la URL: `q` (texto), `cadena` (ids separados por coma), `min` (descuento mínimo), `promo` (`rebaja`, `nxm`, `2da`, `varias`, según el texto de la promo) y `orden` (`precio`, `nombre`; vacío = descuento). |
 | `/<cadena>/`, `/<cadena>/pagina/N/` | Todas las ofertas de la cadena, de a 100, ordenadas por descuento. |
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
