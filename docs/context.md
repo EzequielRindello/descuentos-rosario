@@ -37,7 +37,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
 | `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
-| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url]`. |
+| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura]`. |
 | `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
@@ -74,7 +74,7 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 - La región cambia el precio: yerba Mañanita 1 kg a $4.589 con región y $5.749 sin región. En una muestra del 11/11/2026, 4 de 20 ofertas tenían otro precio sin región.
 - El seller `carrefourar0018` es el **Hiper Rosario Fisherton** (Av. Circunvalación 1977 bis): punto de retiro `carrefourar0018_0018PR` en `/api/checkout/pub/pickup-points?postalCode=2000&countryCode=ARG`. También atiende el retiro en Hiper Rosario Sur.
 - Ojo: el código postal de Rosario para envío a domicilio (`/api/checkout/pub/regions?country=ARG&postalCode=2000`) da **otra región**, con vendedores de otras ciudades (Hiper Merlo, Market Palomar...). Quien entra a la web con su CP puede ver otro precio; para ver el nuestro hay que elegir retiro en Hiper Rosario Fisherton. La web no toma `regionId` por URL (se guarda en una cookie), así que el link a la cadena no puede fijarla.
-- Imágenes: `items[0].images[0].imageUrl`, en `carrefourar.vtexassets.com`. Coto: `product.mediumImage.url`, en `static.cotodigital3.com.ar`. DAR: `Fotos/Articulos/<codigo>.jpg` en su propio servidor. Se guardan en `image` pero no se muestran (ver `STATUS.md`).
+- Imágenes: `items[0].images[0].imageUrl`, en `carrefourar.vtexassets.com`. Coto: `product.mediumImage.url`, en `static.cotodigital3.com.ar`. DAR: `Fotos/Articulos/<codigo>.jpg` en su propio servidor. Se guardan en `image`. Las páginas muestran una miniatura de Carrefour (`/ids/<id>-160-160/`) y de Coto (la "medium" tal cual), cargada desde la cadena; DAR no (servidor propio chico). Los dominios están en la CSP de `web/_headers` y en `thumbnail()` de `src/site.rs`: si cambian, tocar los dos.
 - Categorías de súper (de `/api/catalog_system/pub/category/tree/1`): `almacen`, `desayuno-y-merienda`, `bebidas`, `lacteos-y-productos-frescos`, `carnes-y-pescados`, `frutas-y-verduras`, `panaderia`, `congelados`, `limpieza`, `perfumeria-y-farmacia`, `mundo-bebe`, `mascotas`.
 - Por producto: `productName`, `items[0].ean`, `items[0].sellers[0].commertialOffer.{Price, ListPrice, AvailableQuantity}`. Descuento = 1 − Price / ListPrice.
 - Se pagina hasta que el descuento llega a 0. Sin `hideUnavailableItems` aparecen primero productos sin stock con precio 0.

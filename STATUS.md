@@ -143,6 +143,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | DAR figura solo como "DAR", sin sucursal ni dirección | La dirección que había era un dato personal del mantenedor. |
 | 11/11/2026 | Capturas del README recién después de los estilos | Sin estilos no muestran nada útil. |
 | 11/11/2026 | Carrefour: el precio es el del Hiper Rosario Fisherton (seller `carrefourar0018`, punto de retiro `carrefourar0018_0018PR`) y cada cadena tiene una aclaración (`hint` en `config/stores.toml`) de cómo ver el mismo precio en su web | En la web de Carrefour el código postal de Rosario (envío a domicilio) usa otra región con vendedores de otras ciudades: en una muestra, 4 de 20 precios eran distintos. El link no puede fijar la región (se guarda en una cookie de Carrefour), así que se explica: elegir retiro en Hiper Rosario Fisherton. |
+| 11/11/2026 | Fotos de Carrefour y Coto desde sus servidores (sin copiarlas), DAR sin fotos | Decisión del mantenedor. No se copian las fotos (son de las cadenas y marcas); se cargan desde la cadena con `loading="lazy"` y `referrerpolicy="no-referrer"`. DAR sirve las fotos desde su propio servidor chico. El servidor de imágenes de Coto tiene `robots.txt` que pide a los bots no entrar: el scraper nunca baja imágenes, las carga el navegador de cada persona. Costo: las cadenas ven la IP de quien mira (dicho en Privacidad) y sin señal no hay fotos. |
 | 11/11/2026 | `discount_pct` truncado en vez de redondeado | Nunca mostrar más descuento que el real; con redondeo, un 35,5% salía "-36%" al lado del "35%Dto" de Coto. Se ve desde la próxima corrida (se calcula al scrapear). |
 | 11/11/2026 | Botón "¡Instalá la app!" en el header en vez de la sección "Instalala en el celu" | Pedido del mantenedor. Abre el diálogo de Chrome si está disponible; si no, muestra cómo hacerlo. Desaparece con la app instalada. |
 | 11/11/2026 | `buscar.json` fuera del precache; la app instalada lo baja en segundo plano | Eran 108 KB de los ~150 KB de la primera visita, aunque la persona no buscara nada. Quien usa el sitio sin señal en el súper es quien lo instala. |
@@ -182,7 +183,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
     - Precios contra las cadenas: Carrefour 15/15, Coto 25/25, DAR 7/7 (11/11/2026).
     - Falta: el celu real (instalar la app, sin señal), que lo prueba el mantenedor.
     Recién después: estilos.
-21. [ ] **Imágenes de los productos**: el scraper ya guarda la URL de la imagen de todas las ofertas (`image`). Mostrarlas pide decidir antes: carga desde los servidores de cada cadena (privacidad y CSP), derechos de las fotos, y el servidor chico de DAR. Ver el análisis en la conversación del 11/11/2026; decisión pendiente del mantenedor.
+21. [x] **Imágenes de los productos**: miniaturas de Carrefour (versión de 160 px que arma VTEX) y Coto (foto "medium"), cargadas por el navegador desde el servidor de cada cadena, con carga diferida y sin referer. DAR sin fotos. En las páginas y en los resultados de búsqueda (`buscar.json` suma la miniatura como 9.º campo). CSP abierta solo a esos dos dominios; Privacidad y Términos actualizados. Probado en Chrome: cargan en Carrefour, Coto y la búsqueda, DAR sin fotos, sin errores de consola, 390 px sin scroll horizontal. (commit pendiente)
 
 ## Lanzamiento (cuando el MVP esté terminado)
 

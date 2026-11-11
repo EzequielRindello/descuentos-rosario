@@ -156,10 +156,22 @@ function formatArs(cents) {
 function renderList(rows) {
   const list = document.createElement('ol');
   list.className = 'ofertas';
-  for (const [key, chainName, name, price, listPrice, discount, promo, url] of rows) {
+  for (const [key, chainName, name, price, listPrice, discount, promo, url, image] of rows) {
     const item = document.createElement('li');
     item.dataset.id = key;
     const parts = [];
+    if (image) {
+      // Thumbnail from the chain's image server (same attributes as the server-rendered pages).
+      const img = document.createElement('img');
+      img.src = image;
+      img.alt = '';
+      img.width = 80;
+      img.height = 80;
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      item.append(img, ' ');
+    }
     const title = document.createElement('b');
     title.textContent = name;
     item.append(title, ' · ' + chainName + ' · ');

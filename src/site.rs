@@ -6,6 +6,7 @@
 use std::cmp::Ordering;
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
 use chrono::DateTime;
@@ -49,6 +50,8 @@ struct OfferView {
     discount_pct: Option<u8>,
     promo: Option<String>,
     url: Option<String>,
+    /// Thumbnail URL on the chain's image server (Carrefour and Coto only).
+    image: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -312,6 +315,27 @@ fn view(offer: &Offer) -> OfferView {
         discount_pct: offer.discount_pct,
         promo: offer.promo.clone(),
         url: offer.url.clone(),
+        image: thumbnail(offer),
+    }
+}
+
+/// Image hosts the pages may load from. Must match `img-src` in `web/_headers`.
+const CARREFOUR_IMAGES: &str = "https://carrefourar.vtexassets.com/";
+const COTO_IMAGES: &str = "https://static.cotodigital3.com.ar/";
+
+/// Small product photo shown next to an offer, loaded by the visitor's browser from the chain's
+/// image server. Carrefour gets a 160 px version (VTEX resizes on the fly: `/ids/<id>-160-160/`);
+/// Coto's "medium" photo is already small. DAR is left out: it serves photos from its own small
+/// server and we don't want to load it with every visit.
+fn thumbnail(offer: &Offer) -> Option<String> {
+    let url = offer.image.as_deref()?;
+    match offer.chain {
+        Chain::Carrefour if url.starts_with(CARREFOUR_IMAGES) => {
+            static IDS: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(/arquivos/ids/\d+)/").expect("valid regex"));
+            Some(IDS.replace(url, "${1}-160-160/").into_owned())
+        }
+        Chain::Coto if url.starts_with(COTO_IMAGES) => Some(url.to_string()),
+        _ => None,
     }
 }
 
@@ -400,7 +424,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 opt(offer.promo.clone()),
                 opt(offer.url.clone()),
             ])?;
-            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url].
+            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image].
             search_rows.push(json!([
                 format!("{}:{}", offer.chain.id(), offer.id),
                 offer.chain.name(),
@@ -410,6 +434,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 offer.discount_pct,
                 offer.promo,
                 offer.url,
+                thumbnail(offer),
             ]));
         }
     }
@@ -508,6 +533,33 @@ mod tests {
     #[test]
     fn templates_parse() {
         environment().unwrap();
+    }
+
+    #[test]
+    fn thumbnails_only_for_carrefour_and_coto() {
+        let offer = |chain: Chain, image: &str| Offer {
+            chain,
+            store: "x".into(),
+            id: "1".into(),
+            ean: None,
+            name: "x".into(),
+            price: 100,
+            list_price: None,
+            discount_pct: None,
+            promo: None,
+            url: None,
+            image: Some(image.into()),
+            source: crate::model::Source::Web,
+        };
+        assert_eq!(
+            thumbnail(&offer(Chain::Carrefour, "https://carrefourar.vtexassets.com/arquivos/ids/171526/foto.jpg?v=1")).as_deref(),
+            Some("https://carrefourar.vtexassets.com/arquivos/ids/171526-160-160/foto.jpg?v=1")
+        );
+        let coto = "https://static.cotodigital3.com.ar/sitios/fotos/medium/00000100/00000157.jpg";
+        assert_eq!(thumbnail(&offer(Chain::Coto, coto)).as_deref(), Some(coto));
+        assert_eq!(thumbnail(&offer(Chain::Dar, "https://www.darentucasa.com.ar/Fotos/Articulos/1.jpg")), None);
+        // Hosts outside the CSP never reach the pages.
+        assert_eq!(thumbnail(&offer(Chain::Coto, "https://otro.example/foto.jpg")), None);
     }
 
     #[test]

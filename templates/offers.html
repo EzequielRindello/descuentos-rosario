@@ -1,6 +1,7 @@
 <ol class="ofertas"{% if start %} start="{{ start }}"{% endif %}>
 {% for o in offers %}<li data-id="{{ o.key }}">
-<b>{{ o.name }}</b>
+{% if o.image %}<img src="{{ o.image }}" alt="" width="80" height="80" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+{% endif %}<b>{{ o.name }}</b>
 · {{ o.chain_name }}
 · <strong>{{ o.price }}</strong>
 {% if o.list_price %}· antes <s>{{ o.list_price }}</s> · <em>-{{ o.discount_pct }}%</em>
