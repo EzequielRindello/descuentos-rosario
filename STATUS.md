@@ -83,7 +83,7 @@ cargo run --release -- scrape                  # todas las cadenas, escribe data
 cargo run --release -- scrape --only dar,coto  # solo algunas
 cargo run --release -- build                   # genera el sitio en dist/ a partir de data/
 python -m http.server 8787 --directory dist    # verlo en http://127.0.0.1:8787 (sin _headers)
-npx wrangler@4 deploy                          # publicar dist/ en Cloudflare (requiere `npx wrangler@4 login`)
+npx wrangler@4.155.0 deploy                     # publicar dist/ en Cloudflare (requiere `npx wrangler@4.155.0 login`)
 ```
 
 El bot de GitHub Actions commitea `data/` en `main` todos los días: hacé `git pull` antes de trabajar.
@@ -139,6 +139,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Contacto: el mail personal del mantenedor, por decisión suya (excepción a "sin datos personales", como el subdominio) | Las cadenas necesitan un canal para pedir correcciones o retiro; el mantenedor eligió no crear uno aparte. Puede recibir spam por estar publicado. |
 | 11/11/2026 | Guardados con nombre (`[{ key, name }]` en `localStorage`); los que hoy no están en oferta se listan con su nombre y un botón "Descartar". El botón dice "Guardar" o "Descartar" | Antes solo decía "1 guardada ya no está en oferta" y no había forma de sacarla. Si la oferta vuelve, reaparece sola. Los guardados del formato viejo se leen igual y toman el nombre cuando aparecen en el índice. |
 | 11/11/2026 | SEPA (Precios Claros) descartado | Decisión del mantenedor. Con eso quedan afuera Jumbo y Todo Chen (que no tiene web, solo Instagram) y la validación cruzada de precios. |
+| 11/11/2026 | Actions del workflow fijadas por SHA, `wrangler` a versión exacta (de al menos dos semanas) y Dependabot | Una versión nueva comprometida correría con permiso de escribir en el repo y con el token de Cloudflare. Con SHA, lo que corre no cambia sin un PR. |
 | 11/11/2026 | Capturas del README recién después de los estilos | Sin estilos no muestran nada útil. |
 | 11/11/2026 | El workflow no hace `pull --rebase` antes de pushear `data/` | Si se pushea algo mientras corre, que falle y quede registrado; se aprende de eso. Los datos de ese día igual quedan publicados en la web. |
 | 11/11/2026 | El subdominio `workers.dev` lleva el nombre del mantenedor y se deja así por ahora (excepción a "sin datos personales") | Cambiarlo no aporta hasta tener dominio propio; se reemplaza junto con el dominio. |
@@ -161,7 +162,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
 12. [ ] **Revisión legal**: los textos de términos y privacidad los escribió un agente, no un abogado. Que los revise alguien con matrícula antes del lanzamiento, junto con los términos de uso de cada cadena.
 13. [x] **Favicon**: flecha de cursor blanca sobre negro (`web/icons/favicon.svg` + PNG 192/512/maskable). Provisorio hasta los estilos. (commit pendiente)
 14. [x] **Seguridad, arreglos rápidos**: headers en `web/_headers` (CSP que solo permite el propio sitio, `frame-ancestors 'none'`, Permissions-Policy, COOP, HSTS) y links a las cadenas solo si son `https://`. Probado en local con un servidor que aplica `_headers`: sin errores de CSP. Falta verlo en producción. (commit pendiente)
-15. [ ] **Seguridad del workflow**: fijar las actions por SHA (`actions/checkout`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache`) y `wrangler` a una versión exacta; sumar Dependabot (`.github/dependabot.yml`) para Cargo y Actions. Hoy, una versión nueva comprometida de cualquiera de ellas correría con permiso de escribir en el repo y con el token de Cloudflare.
+15. [x] **Seguridad del workflow**: actions fijadas por SHA (`actions/checkout` v7.0.1, que ya corre en Node 24; `dtolnay/rust-toolchain` stable; `Swatinem/rust-cache` v2.9.3), `wrangler@4.155.0` exacto y Dependabot semanal para Cargo y Actions (`.github/dependabot.yml`). `wrangler` se actualiza a mano: Dependabot no ve `npx`. Falta verlo en una corrida real. (commit pendiente)
 16. [ ] **Datos viejos en caché**: si el celu muestra páginas guardadas (sin señal, o la red tarda más de 4 s), avisarlo: "Sin conexión: estas ofertas son del DD/MM". Hoy el service worker cae al caché sin decir nada. La revalidación de `datos/` ya está (`max-age=0, must-revalidate`).
 17. [ ] **Filtros y orden (UX)**: en la búsqueda y en las páginas de cadena, filtrar por descuento mínimo y tipo de promo (2x1, 2da unidad) y ordenar por descuento o precio. Por categoría hace falta guardar la categoría en `Offer` (ver Pendientes). Definir el diseño antes de implementarlo.
 18. [ ] **Performance**: el service worker precachea `buscar.json` (1,4 MB sin comprimir) en la primera visita; pasarlo a bajo demanda. Medir con Lighthouse (pide `npx lighthouse`, consultar antes de descargarlo). Las páginas de cadena pesan ~100 KB de HTML.
