@@ -8,7 +8,7 @@ Todas las mañanas se revisan las webs de **Coto**, **Carrefour** y **DAR** y se
 - **Instalable en el celu** como una app, y funciona sin señal adentro del súper.
 - **Gratis y de código abierto.**
 
-> La web todavía está en construcción. Cuando esté publicada, el link va a estar acá.
+**👉 [ofertas-rosario.rindelloezequiel.workers.dev](https://ofertas-rosario.rindelloezequiel.workers.dev)** (en construcción)
 
 ## Los datos son tuyos también
 

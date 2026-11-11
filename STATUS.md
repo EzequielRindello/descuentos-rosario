@@ -24,9 +24,9 @@ Documentos:
 
 Hecho: los scrapers de las tres cadenas andan y el sitio estático se genera completo (HTML con las ofertas, SEO, PWA instalable y offline, búsqueda y guardados). Probado en local con Chrome. Última corrida (10/11/2026): Carrefour 1.643 ofertas, Coto 4.766 (solo súper), DAR 280.
 
-Falta: el primer deploy a Cloudflare, cargar los secrets y probar el workflow de GitHub Actions, y la URL real del sitio.
+Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers). Falta: cargar los secrets de Cloudflare en el repo y probar el workflow de GitHub Actions.
 
-**Próximo paso:** primer `wrangler deploy` (tarea 5). Necesita bajar `wrangler` (npm) con el OK del mantenedor.
+**Próximo paso:** el mantenedor carga `CLOUDFLARE_API_TOKEN` (permiso "Workers Scripts · Edit") y `CLOUDFLARE_ACCOUNT_ID` en GitHub, y se corre el workflow a mano.
 
 ## Estado por componente
 
@@ -44,7 +44,7 @@ Falta: el primer deploy a Cloudflare, cargar los secrets y probar el workflow de
 | PWA (manifest, service worker, aviso de instalación) | ✅ Chrome la ofrece para instalar; offline con precache | `web/manifest.webmanifest`, `web/sw.js`, `web/app.js` |
 | Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
 | Íconos | 🟡 Provisorios (un "%" blanco sobre negro) | `web/icons/` |
-| Deploy Cloudflare | 🟡 `wrangler.jsonc` listo, falta el primer deploy | `wrangler.jsonc` |
+| Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
 | GitHub Actions diario | 🟡 Escrito, sin probar (faltan los secrets) | `.github/workflows/daily.yml` |
 | README para usuarios | 🟡 Versión mínima, falta el link a la web | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
@@ -101,18 +101,19 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Service worker "network first" con caché de respaldo; la versión del caché cambia en cada build | Los precios cambian todos los días: primero la red, y si no hay señal, lo último guardado. |
 | 11/11/2026 | Control de caídas en el binario: menos de la mitad de ofertas que el día anterior = error | Un rediseño suele verse como "pocas ofertas", no como un error. Mejor mostrar datos de ayer que una cadena vacía. |
 | 11/11/2026 | Si alguna cadena falla, el workflow abre un issue en GitHub | Enterarse sin mirar los logs. |
+| 11/11/2026 | URL pública: el subdominio `workers.dev` de la cuenta, por ahora | Gratis e inmediato. Un dominio propio queda para más adelante. |
 
 ## Próximos pasos
 
 En orden. Cuando cierres una, marcala y poné el commit.
 
-1. [x] **Sitio estático**: comando `build`, portada, una sección paginada por cadena, datos abiertos (`datos/<cadena>.json`, `datos/hoy.csv`), 404. HTML con las ofertas escritas, `title`, `description`, canonical, Open Graph, `lang="es-AR"` y JSON-LD. Sin estilos. (commit pendiente)
-2. [x] **SEO técnico**: `sitemap.xml`, `robots.txt` abierto a buscadores y bots de IA, `llms.txt`. (commit pendiente)
-3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (commit pendiente)
-4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (commit pendiente)
-5. [ ] **Deploy**: primer `npx wrangler@4 deploy` con la cuenta de Cloudflare logueada. Después, poner la URL real en `config/site.toml` y volver a hacer `build` + deploy.
-6. [ ] **GitHub Actions**: cargar los secrets `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID` en el repo, correrlo a mano (`workflow_dispatch`) y verificar que las tres cadenas respondan desde las IPs de Azure.
-7. [x] **Control de caídas**: menos de la mitad de ofertas que ayer = error; el workflow abre un issue si alguna cadena falla. (commit pendiente)
+1. [x] **Sitio estático**: comando `build`, portada, una sección paginada por cadena, datos abiertos (`datos/<cadena>.json`, `datos/hoy.csv`), 404. HTML con las ofertas escritas, `title`, `description`, canonical, Open Graph, `lang="es-AR"` y JSON-LD. Sin estilos. (`c2bbbf9`)
+2. [x] **SEO técnico**: `sitemap.xml`, `robots.txt` abierto a buscadores y bots de IA, `llms.txt`. (`c2bbbf9`)
+3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (`c2bbbf9`)
+4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (`c2bbbf9`)
+5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (commit pendiente)
+6. [ ] **GitHub Actions**: cargar los secrets en el repo (los de otros repos no sirven: los secrets son por repo y no se pueden leer). `CLOUDFLARE_API_TOKEN` tiene que tener permiso "Workers Scripts · Edit" (plantilla "Edit Cloudflare Workers"). Después correrlo a mano (`workflow_dispatch`) y verificar que las tres cadenas respondan desde las IPs de Azure.
+7. [x] **Control de caídas**: menos de la mitad de ofertas que ayer = error; el workflow abre un issue si alguna cadena falla. (`c2bbbf9`)
 8. [ ] **README**: completar con el link a la web, capturas y cómo instalarla en el celu.
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console y Bing Webmaster.
 10. [ ] Testeo de punta a punta. Recién después: estilos.
@@ -129,7 +130,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 ## Pendientes y dudas abiertas
 
-- [ ] `config/site.toml`: `url` es provisoria hasta el primer deploy. Canonical, sitemap y `llms.txt` dependen de ella.
+- [ ] Dominio propio (opcional, mejor para SEO). Si se cambia, actualizar `url` en `config/site.toml` y el link del README.
 - [ ] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Opciones: permitir el bot en la regla, o mover los datos a una rama `data`.
 - [ ] Íconos definitivos (van con los estilos, al final).
 - [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
@@ -154,4 +155,5 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `c2bbbf9` | 11/11/2026 | Sitio estático (portada, secciones por cadena, datos abiertos, SEO, `llms.txt`), PWA offline, búsqueda y guardados, filtro de categorías de Coto, control de caídas, `wrangler.jsonc` y workflow diario. |
 | `c65fdc1` | 11/11/2026 | Primer commit: scrapers de Carrefour, Coto y DAR, detector, salida en `data/`, tests, docs, licencia y datos de la primera corrida. |
