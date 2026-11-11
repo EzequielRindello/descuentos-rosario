@@ -8,7 +8,7 @@ Referencia técnica del proyecto: stack, reglas y cómo se lee cada fuente. Dón
 
 | Parte | Tecnología |
 | --- | --- |
-| Scrapers, detector y generación del sitio | Rust 2024 (`tokio`, `reqwest` 0.13, `scraper`, `serde`, `regex`, `chrono`, `toml`; `minijinja` cuando se genere el HTML) |
+| Scrapers, detector y generación del sitio | Rust 2024 (`tokio`, `reqwest` 0.13, `scraper`, `serde`, `regex`, `chrono`, `toml`, `minijinja` para las plantillas HTML) |
 | TLS | rustls para todo, salvo DAR: su IIS 8.5 solo ofrece `ECDHE-RSA-AES256-SHA384` (CBC), que rustls no implementa. DAR usa OpenSSL compilado dentro del binario (`native-tls-vendored`), sin depender de paquetes del sistema. |
 | Frontend | HTML generado por Rust + JS plano, sin framework ni bundler |
 | PWA | `manifest.webmanifest` + `sw.js` |
@@ -47,16 +47,16 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 ## SEO y descubrimiento por IAs
 
 - HTML generado de antemano, con las ofertas escritas en la página. Nada de SPA con `<div id="root">` vacío.
-- Una página por cadena y una de descuentos bancarios. Cada una con `title`, `description`, canonical, Open Graph y `lang="es-AR"`.
+- Una sección por cadena (la página de descuentos bancarios está pendiente, ver `STATUS.md`). Cada página con `title`, `description`, canonical, Open Graph y `lang="es-AR"`.
 - JSON-LD de schema.org (`ItemList` + `Offer`, precio en ARS).
 - `sitemap.xml` con fecha diaria y `robots.txt` que permite GPTBot, ClaudeBot, PerplexityBot y Google-Extended. Revisar que Cloudflare no tenga activado el bloqueo de bots de IA.
 - `llms.txt` con el resumen del proyecto y links a los datos.
-- Datos abiertos: `/datos/hoy.json` y `/datos/hoy.csv`.
+- Datos abiertos: `/datos/<cadena>.json` y `/datos/hoy.csv`.
 - Al publicar: Google Search Console y Bing Webmaster (Bing alimenta ChatGPT Search y Copilot).
 
 ## Reglas de cortesía con los sitios
 
-- User-Agent identificable: `OfertasRosario/0.1 (+<url del repo>)`. Nunca hacerse pasar por un navegador.
+- User-Agent identificable, en `config/stores.toml`. Hoy es `OfertasRosario/0.1 (proyecto open source sin fines de lucro)`; al lanzar pasa a `OfertasRosario/0.1 (+<url del repo>)`. Nunca hacerse pasar por un navegador.
 - Respetar `robots.txt`.
 - Una corrida por día, pausa entre requests, sin paralelismo agresivo.
 - No extraer keys ni tokens de las páginas para usar sus APIs privadas.

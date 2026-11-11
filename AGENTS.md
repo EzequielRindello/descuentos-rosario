@@ -11,4 +11,4 @@ Antes de hacer cualquier cosa, leé `STATUS.md` (estado, decisiones, tareas) y `
 - Un bot commitea `data/` en `main` todos los días: hacé `git pull` antes de empezar. No edites `data/` a mano.
 - Publicar (`wrangler deploy`), disparar el workflow o tocar secrets de GitHub/Cloudflare: pedir OK antes.
 - Cortesía con los sitios: User-Agent identificable, respetar `robots.txt`, nunca hacerse pasar por un navegador ni usar keys sacadas de las páginas.
-- Sin rutas locales ni datos personales en el repo: es público.
+- Sin rutas locales ni datos personales en el repo: hoy es privado, pero se hace público al lanzar el MVP.
