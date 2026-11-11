@@ -1,6 +1,9 @@
 {
   // Worker que solo sirve archivos estáticos (no hay código de servidor).
   // dist/ lo genera `cargo run --release -- build`.
+  // Costo: los pedidos a archivos estáticos son gratis y sin límite. No agregar "main" ni
+  // "run_worker_first" sin decidirlo antes: con código, cada pedido cuenta contra el límite
+  // del plan gratis (100.000 por día; al pasarlo el sitio da error 1027, no se cobra).
   "name": "ofertas-rosario",
   "compatibility_date": "2026-11-01",
   "assets": {
