@@ -10,8 +10,12 @@ request_delay_ms = 1000
 
 [carrefour]
 enabled = true
-store = "Carrefour Hiper Fisherton (precios de la región Rosario)"
-# Seller de Rosario en la API de puntos de retiro. La región se arma como base64("SW#<seller>").
+store = "Carrefour Hiper Rosario Fisherton (Av. Circunvalación 1977 bis)"
+# Cómo ver el mismo precio en la web de la cadena. Se muestra junto a sus ofertas.
+hint = "Para ver estos precios en la web de Carrefour, elegí retiro en sucursal Hiper Rosario Fisherton. Con envío a domicilio pueden ser otros."
+# Seller del Hiper Rosario Fisherton en la API de puntos de retiro (carrefourar0018_0018PR).
+# La región se arma como base64("SW#<seller>"). Ojo: el código postal de Rosario para envío
+# a domicilio da otra región, con vendedores de otras ciudades y a veces otros precios.
 seller = "carrefourar0018"
 # Categorías de supermercado (slugs de /api/catalog_system/pub/category/tree/1).
 categories = [
@@ -34,6 +38,7 @@ min_discount_pct = 1
 [coto]
 enabled = true
 store = "Coto Alto Rosario (Av. Junín y Thedy)"
+hint = "Es el precio de Coto Digital, el mismo que muestra su web. Solo se incluyen productos que Coto marca como disponibles en Alto Rosario."
 # Número interno de la sucursal. Filtra los productos disponibles en esa tienda.
 store_id = "165"
 # Resultados por request. La API acepta hasta 500 sin problemas.
@@ -44,3 +49,4 @@ exclude_categories = ["Electro", "Textil", "Hogar", "Aire Libre"]
 [dar]
 enabled = true
 store = "DAR"
+hint = "Es el precio de la tienda online de DAR. Sus ofertas no tienen página propia, así que no hay enlace."

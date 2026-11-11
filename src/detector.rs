@@ -18,12 +18,13 @@ pub fn finalize(offers: &mut [Offer]) {
     }
 }
 
-/// Rounded percentage saved: 1 - price / list.
+/// Percentage saved, 1 - price / list, truncated: never show more discount than the real one
+/// (35.5% is shown as 35%, matching the chain's own "35%Dto").
 pub fn discount_pct(price: u64, list: u64) -> u8 {
     if list == 0 || price >= list {
         return 0;
     }
-    (((list - price) * 100 + list / 2) / list) as u8
+    ((list - price) * 100 / list) as u8
 }
 
 #[cfg(test)]
@@ -49,10 +50,12 @@ mod tests {
     }
 
     #[test]
-    fn computes_rounded_discount() {
+    fn computes_truncated_discount() {
         assert_eq!(discount_pct(283_765, 567_530), 50);
         assert_eq!(discount_pct(2_000, 3_000), 33);
         assert_eq!(discount_pct(100, 100), 0);
+        // Café Molido COTO 500 g (11/11/2026): $8.898,24 against $13.800 is 35.52%, Coto says "35%Dto".
+        assert_eq!(discount_pct(889_824, 1_380_000), 35);
     }
 
     #[test]

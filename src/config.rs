@@ -16,6 +16,9 @@ pub struct Config {
 pub struct CarrefourConfig {
     pub enabled: bool,
     pub store: String,
+    /// Shown next to the chain's offers: how to see the same price on the chain's own site.
+    #[serde(default)]
+    pub hint: String,
     pub seller: String,
     pub categories: Vec<String>,
     pub min_discount_pct: u8,
@@ -25,6 +28,9 @@ pub struct CarrefourConfig {
 pub struct CotoConfig {
     pub enabled: bool,
     pub store: String,
+    /// Shown next to the chain's offers: how to see the same price on the chain's own site.
+    #[serde(default)]
+    pub hint: String,
     pub store_id: String,
     pub page_size: u32,
     /// Top-level Coto categories that are not groceries (matched against the product's ancestors).
@@ -36,6 +42,9 @@ pub struct CotoConfig {
 pub struct DarConfig {
     pub enabled: bool,
     pub store: String,
+    /// Shown next to the chain's offers: how to see the same price on the chain's own site.
+    #[serde(default)]
+    pub hint: String,
 }
 
 impl Config {

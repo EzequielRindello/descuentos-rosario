@@ -11,8 +11,14 @@
 <h2>¿De dónde salen los precios?</h2>
 <p>De las webs públicas de cada cadena, con el precio online de una sucursal o región de Rosario:</p>
 <ul>
-{% for c in chains %}<li>{{ c.name }}: {{ c.store }}.</li>
+{% for c in chains %}<li>{{ c.name }}: {{ c.store }}.{% if c.hint %} {{ c.hint }}{% endif %}</li>
 {% endfor %}</ul>
+
+<h2>Entré a la web de la cadena y el precio es otro, ¿por qué?</h2>
+<p>Porque algunas cadenas muestran precios distintos según la sucursal o la zona de envío que elijas en su web. Nuestros precios son los de la sucursal de Rosario que figura arriba. En Carrefour, por ejemplo, elegí retiro en Hiper Rosario Fisherton: con envío a domicilio a Rosario la web usa otra zona y algunos precios cambian. También puede pasar que el precio haya cambiado después de la actualización de la mañana.</p>
+
+<h2>¿Cómo sé que el producto está disponible en Rosario?</h2>
+<p>Solo mostramos productos que la cadena marca como disponibles en esa sucursal: en Carrefour, con stock para retirar en Hiper Rosario Fisherton; en Coto, los que figuran disponibles en Alto Rosario. La disponibilidad puede cambiar durante el día.</p>
 
 <h2>¿El precio es el mismo que en la góndola?</h2>
 <p>No siempre. Es el precio que la cadena publica en su web esa mañana, y puede cambiar durante el día o ser distinto en la tienda. Revisá siempre el precio en el súper antes de comprar.</p>
@@ -24,7 +30,7 @@
 <p>Porque ese día no pudimos leer su web. En vez de mostrar las ofertas de ayer, que quizás ya no valen, la sección queda vacía hasta la próxima actualización.</p>
 
 <h2>¿Cómo se calcula el descuento?</h2>
-<p>Contra el precio anterior que muestra la cadena: descuento = 1 − precio de oferta / precio anterior. Si el precio anterior no es creíble (más de 5 veces el actual), no se muestra. Las promos como 2x1 o 70% en la segunda unidad se muestran con el texto de la cadena.</p>
+<p>Contra el precio anterior que muestra la cadena: descuento = 1 − precio de oferta / precio anterior, redondeado para abajo para no exagerarlo. Por eso a veces no coincide exacto con el texto de la promo de la cadena. Si el precio anterior no es creíble (más de 5 veces el actual), no se muestra. Las promos como 2x1 o 70% en la segunda unidad se muestran con el texto de la cadena.</p>
 
 <h2>¿Por qué algunas ofertas no tienen descuento?</h2>
 <p>Porque la cadena no publica el precio anterior. DAR, por ejemplo, solo muestra el precio final.</p>

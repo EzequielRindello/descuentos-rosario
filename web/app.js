@@ -16,39 +16,40 @@ if ('serviceWorker' in navigator) {
 
 // ---------- Install ----------
 
+// Header button: Chrome's install prompt when available, otherwise how to do it by hand.
+// Hidden once the site runs as an installed app.
 function setupInstall() {
-  const section = $('#instalar');
-  if (!section) return;
+  const button = $('#instalar-boton');
+  const help = $('#instalar-ayuda');
+  if (!button || !help) return;
   if (isInstalledApp()) {
     warmUpIndex();
     return;
   }
-
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  section.hidden = false;
-  if (isIos) {
-    $('#instalar-ios').hidden = false;
-  } else {
-    $('#instalar-android').hidden = false;
-  }
+  button.hidden = false;
 
   let deferredPrompt = null;
-  const button = $('#instalar-boton');
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     deferredPrompt = event;
-    button.hidden = false;
-    $('#instalar-android').hidden = true;
   });
   button.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    button.hidden = true;
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      return;
+    }
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    help.textContent = isIos
+      ? 'En iPhone: tocá Compartir (el cuadrado con la flecha) y después "Agregar a inicio". Queda como una app y la podés usar sin señal en el súper.'
+      : 'En el menú del navegador (⋮) tocá "Instalar app" o "Agregar a pantalla principal". Queda como una app y la podés usar sin señal en el súper.';
+    help.hidden = !help.hidden;
+    button.setAttribute('aria-expanded', String(!help.hidden));
   });
   window.addEventListener('appinstalled', () => {
-    section.hidden = true;
+    button.hidden = true;
+    help.hidden = true;
     warmUpIndex();
   });
 }
@@ -314,6 +315,15 @@ async function renderResults(filters, results) {
     const note = document.createElement('p');
     note.textContent = 'DAR no publica precio anterior: no aparece al filtrar por descuento.';
     parts.push(note);
+  }
+  // How to see the same price on each chain's site, for the chains in the shown results.
+  const shownChains = new Set(matches.slice(0, shown).map((row) => row[0].split(':')[0]));
+  for (const box of chainBoxes()) {
+    if (shownChains.has(box.value) && box.dataset.hint) {
+      const hint = document.createElement('p');
+      hint.textContent = box.dataset.name + ': ' + box.dataset.hint.charAt(0).toLowerCase() + box.dataset.hint.slice(1);
+      parts.push(hint);
+    }
   }
   if (matches.length) parts.push(renderList(matches.slice(0, shown)));
   if (matches.length > shown) {

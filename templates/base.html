@@ -26,7 +26,8 @@
 </head>
 <body data-updated="{{ updated_iso }}">
 <header>
-<p><a href="/">{{ site.name }}</a></p>
+<p><a href="/">{{ site.name }}</a> <button type="button" id="instalar-boton" aria-expanded="false" aria-controls="instalar-ayuda" hidden>¡Instalá la app!</button></p>
+<p id="instalar-ayuda" hidden></p>
 <nav aria-label="Secciones">
 <ul>
 <li><a href="/">Inicio</a></li>
@@ -35,14 +36,6 @@
 </ul>
 </nav>
 </header>
-
-<section id="instalar" hidden>
-<h2>Instalala en el celu</h2>
-<p>Funciona como una app y la podés usar sin señal adentro del súper.</p>
-<p><button type="button" id="instalar-boton" hidden>Instalar</button></p>
-<p id="instalar-ios" hidden>En iPhone: tocá <b>Compartir</b> y después <b>Agregar a inicio</b>.</p>
-<p id="instalar-android" hidden>En el menú del navegador (⋮) tocá <b>Instalar app</b> o <b>Agregar a pantalla principal</b>.</p>
-</section>
 
 <main>
 <div id="aviso-fecha" role="status" hidden></div>

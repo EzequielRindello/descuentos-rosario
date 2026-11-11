@@ -24,7 +24,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 - Los precios van en **centavos** (`price`, `list_price`), enteros, para evitar errores de redondeo.
 - Campos de `Offer`: `chain`, `store`, `id` (id propio de la cadena), `ean`, `name`, `price`, `list_price`, `discount_pct`, `promo`, `url`, `image`, `source` (`web`).
 - `data/run.json`: resumen de la última corrida por cadena (`ok`, `offers`, `seconds`, `error`). Si una cadena falla (error o 0 ofertas), su archivo de ofertas del día anterior queda como está en `data/`, pero el sitio la publica vacía con un aviso (ver abajo).
-- El detector descarta `list_price` menores o iguales al precio, o más de 5 veces mayores (caso Jumbo), y calcula `discount_pct`.
+- El detector descarta `list_price` menores o iguales al precio, o más de 5 veces mayores (caso Jumbo), y calcula `discount_pct` truncado (nunca muestra más descuento que el real; 35,5% es 35, como el "35%Dto" de Coto).
 
 ## Sitio generado (`dist/`)
 
@@ -71,7 +71,10 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 
 - Endpoint: `GET https://www.carrefour.com.ar/api/io/_v/api/intelligent-search/product_search/category-1/<slug>`
 - Parámetros: `query=`, `count=50`, `page=N`, `sort=discount:desc`, `hideUnavailableItems=true`, `regionId=U1cjY2FycmVmb3VyYXIwMDE4` (base64 de `SW#carrefourar0018`, Rosario).
-- La región cambia el precio: yerba Mañanita 1 kg a $4.589 con región y $5.749 sin región.
+- La región cambia el precio: yerba Mañanita 1 kg a $4.589 con región y $5.749 sin región. En una muestra del 11/11/2026, 4 de 20 ofertas tenían otro precio sin región.
+- El seller `carrefourar0018` es el **Hiper Rosario Fisherton** (Av. Circunvalación 1977 bis): punto de retiro `carrefourar0018_0018PR` en `/api/checkout/pub/pickup-points?postalCode=2000&countryCode=ARG`. También atiende el retiro en Hiper Rosario Sur.
+- Ojo: el código postal de Rosario para envío a domicilio (`/api/checkout/pub/regions?country=ARG&postalCode=2000`) da **otra región**, con vendedores de otras ciudades (Hiper Merlo, Market Palomar...). Quien entra a la web con su CP puede ver otro precio; para ver el nuestro hay que elegir retiro en Hiper Rosario Fisherton. La web no toma `regionId` por URL (se guarda en una cookie), así que el link a la cadena no puede fijarla.
+- Imágenes: `items[0].images[0].imageUrl`, en `carrefourar.vtexassets.com`. Coto: `product.mediumImage.url`, en `static.cotodigital3.com.ar`. DAR: `Fotos/Articulos/<codigo>.jpg` en su propio servidor. Se guardan en `image` pero no se muestran (ver `STATUS.md`).
 - Categorías de súper (de `/api/catalog_system/pub/category/tree/1`): `almacen`, `desayuno-y-merienda`, `bebidas`, `lacteos-y-productos-frescos`, `carnes-y-pescados`, `frutas-y-verduras`, `panaderia`, `congelados`, `limpieza`, `perfumeria-y-farmacia`, `mundo-bebe`, `mascotas`.
 - Por producto: `productName`, `items[0].ean`, `items[0].sellers[0].commertialOffer.{Price, ListPrice, AvailableQuantity}`. Descuento = 1 − Price / ListPrice.
 - Se pagina hasta que el descuento llega a 0. Sin `hideUnavailableItems` aparecen primero productos sin stock con precio 0.

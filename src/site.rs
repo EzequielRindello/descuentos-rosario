@@ -56,6 +56,8 @@ struct ChainView {
     id: &'static str,
     name: &'static str,
     store: String,
+    /// How to see the same price on the chain's site (from `config/stores.toml`).
+    hint: String,
     count: usize,
     count_label: String,
     has_list_prices: bool,
@@ -67,6 +69,7 @@ struct ChainView {
 struct ChainData {
     chain: Chain,
     store: String,
+    hint: String,
     offers: Vec<Offer>,
     failed: bool,
 }
@@ -91,6 +94,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
             id: c.chain.id(),
             name: c.chain.name(),
             store: c.store.clone(),
+            hint: c.hint.clone(),
             count: c.offers.len(),
             count_label: group_thousands(c.offers.len() as u64),
             has_list_prices: c.offers.iter().any(|o| o.list_price.is_some()),
@@ -283,12 +287,12 @@ fn load_chains(data_dir: &Path, stores: &Config, report: Option<&RunReport>) -> 
             }
         }
         offers.sort_by(rank);
-        let store = match chain {
-            Chain::Carrefour => stores.carrefour.store.clone(),
-            Chain::Coto => stores.coto.store.clone(),
-            Chain::Dar => stores.dar.store.clone(),
+        let (store, hint) = match chain {
+            Chain::Carrefour => (stores.carrefour.store.clone(), stores.carrefour.hint.clone()),
+            Chain::Coto => (stores.coto.store.clone(), stores.coto.hint.clone()),
+            Chain::Dar => (stores.dar.store.clone(), stores.dar.hint.clone()),
         };
-        chains.push(ChainData { chain, store, offers, failed });
+        chains.push(ChainData { chain, store, hint, offers, failed });
     }
     Ok(chains)
 }

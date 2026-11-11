@@ -142,6 +142,9 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Actions del workflow fijadas por SHA, `wrangler` a versión exacta (de al menos dos semanas) y Dependabot | Una versión nueva comprometida correría con permiso de escribir en el repo y con el token de Cloudflare. Con SHA, lo que corre no cambia sin un PR. |
 | 11/11/2026 | DAR figura solo como "DAR", sin sucursal ni dirección | La dirección que había era un dato personal del mantenedor. |
 | 11/11/2026 | Capturas del README recién después de los estilos | Sin estilos no muestran nada útil. |
+| 11/11/2026 | Carrefour: el precio es el del Hiper Rosario Fisherton (seller `carrefourar0018`, punto de retiro `carrefourar0018_0018PR`) y cada cadena tiene una aclaración (`hint` en `config/stores.toml`) de cómo ver el mismo precio en su web | En la web de Carrefour el código postal de Rosario (envío a domicilio) usa otra región con vendedores de otras ciudades: en una muestra, 4 de 20 precios eran distintos. El link no puede fijar la región (se guarda en una cookie de Carrefour), así que se explica: elegir retiro en Hiper Rosario Fisherton. |
+| 11/11/2026 | `discount_pct` truncado en vez de redondeado | Nunca mostrar más descuento que el real; con redondeo, un 35,5% salía "-36%" al lado del "35%Dto" de Coto. Se ve desde la próxima corrida (se calcula al scrapear). |
+| 11/11/2026 | Botón "¡Instalá la app!" en el header en vez de la sección "Instalala en el celu" | Pedido del mantenedor. Abre el diálogo de Chrome si está disponible; si no, muestra cómo hacerlo. Desaparece con la app instalada. |
 | 11/11/2026 | `buscar.json` fuera del precache; la app instalada lo baja en segundo plano | Eran 108 KB de los ~150 KB de la primera visita, aunque la persona no buscara nada. Quien usa el sitio sin señal en el súper es quien lo instala. |
 | 11/11/2026 | Filtros en la búsqueda de la portada (sobre `buscar.json`), no dentro de las páginas de cadena | Las páginas de cadena son HTML fijo de a 100 para buscadores; filtrar ahí solo vería esas 100. La búsqueda tiene todas las ofertas. Las páginas de cadena enlazan a la búsqueda con la cadena elegida. |
 | 11/11/2026 | El formulario de búsqueda ya no usa `onsubmit` inline; el envío lo maneja `app.js` | La CSP bloquea los handlers inline: con Enter se recargaba la página. |
@@ -172,7 +175,14 @@ En orden. Cuando cierres una, marcala y poné el commit.
 17. [x] **Filtros y orden (UX)**: la búsqueda de la portada pasó a "Buscar y filtrar": producto, cadena (casillas), descuento mínimo (10 a 50%), tipo de promo (precio rebajado, 2x1 y 3x2, 2da unidad, llevando varias) y orden (descuento, precio, nombre). Se aplican al cambiar, sin texto también; resultados de a 50 con "Mostrar más"; los filtros quedan en la URL (`/?cadena=coto&min=40`). Cada página de cadena tiene "Filtrar las ofertas de ...". Probado en Chrome, también a 390 px. Por categoría falta guardar la categoría en `Offer` (ver Pendientes). (commit pendiente)
 18. [ ] **Performance**: medido en producción (comprimido): portada 7,5 KB, página de cadena ~11 KB, `app.js` 2,6 KB, `buscar.json` 108 KB (583 KB sin comprimir). Hecho: `buscar.json` ya no se precachea en la primera visita (era ~70% de lo que bajaba); se guarda al buscar por primera vez, y la app instalada lo baja en segundo plano para buscar sin señal. Probado en Chrome: primera visita sin el índice, y búsqueda sin servidor después de haber buscado una vez (commit pendiente). Falta: medir con Lighthouse (Chrome lo trae en F12 → Lighthouse, sin descargar nada) y probar la app instalada en un celu.
 19. [ ] **Rate limiting**: con `workers.dev` no se puede. Los archivos estáticos de Workers son gratis y sin límite, y Cloudflare frena los DDoS solo, así que hoy no hay costo ni riesgo de quedarse sin cuota. Con dominio propio, sumar una regla de rate limiting de Cloudflare (el plan gratis trae una).
-20. [ ] Testeo de punta a punta (búsqueda, guardados, paginado, offline, instalar, en celu y escritorio). Recién después: estilos.
+20. [ ] **Testeo de punta a punta**. Escritorio hecho el 11/11/2026 (commit pendiente):
+    - Recorrido automático del build local: las 37 URLs del sitemap y los 44 links internos responden; `lang`, `title`, `description`, canonical y un `h1` en cada página; JSON-LD válido; las 3.017 ofertas aparecen una sola vez, en orden de descuento y con el mismo nombre, precio, precio anterior y % que `data/`; `buscar.json`, `hoy.csv`, `datos/<cadena>.json` y `actualizado.json` coinciden; `llms.txt`, manifest e íconos sin links rotos; headers de seguridad presentes.
+    - En Chrome: sin errores de consola en portada, cadena, preguntas, datos, términos y 404; búsqueda, filtros, guardados, aviso de fecha y offline ya probados; botón de instalar del header; ancho de 390 px sin scroll horizontal.
+    - Links a las cadenas: Carrefour 6/6 abren el producto; Coto abre el producto con el mismo precio (su web arma la página en el navegador, revisado a mano).
+    - Precios contra las cadenas: Carrefour 15/15, Coto 25/25, DAR 7/7 (11/11/2026).
+    - Falta: el celu real (instalar la app, sin señal), que lo prueba el mantenedor.
+    Recién después: estilos.
+21. [ ] **Imágenes de los productos**: el scraper ya guarda la URL de la imagen de todas las ofertas (`image`). Mostrarlas pide decidir antes: carga desde los servidores de cada cadena (privacidad y CSP), derechos de las fotos, y el servidor chico de DAR. Ver el análisis en la conversación del 11/11/2026; decisión pendiente del mantenedor.
 
 ## Lanzamiento (cuando el MVP esté terminado)
 
@@ -192,7 +202,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 - [ ] Íconos definitivos (van con los estilos, al final).
 - [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
 - [ ] Coto: guardar los descuentos por medio de pago (`product.dtoDescuentosMediosPago`) para la página de bancos.
-- [ ] Coto: confirmar que `sDisp` 1004 = disponible y 1001 = no disponible.
+- [ ] Coto: confirmar que `sDisp` 1004 = disponible y 1001 = no disponible. Solo existen esos dos valores (36 tiendas en un producto: 30 con 1004, 6 con 1001). La web de Coto no deja elegir sucursal sin cuenta, así que no se pudo confirmar desde la web.
 - [ ] Carrefour: promos 2x1 (`Teasers` viene vacío en Intelligent Search).
 - [ ] DAR: promos bancarias y `Detalle.asp` (sin revisar).
 - [ ] DAR: no tiene precio anterior; su descuento real depende del historial (etapa 2).

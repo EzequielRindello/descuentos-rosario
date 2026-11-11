@@ -10,7 +10,7 @@
 <input id="q" name="q" type="search" placeholder="yerba, leche, aceite..." autocomplete="off" disabled></p>
 <fieldset>
 <legend>Cadena</legend>
-{% for c in chains %}{% if not c.failed %}<label><input type="checkbox" name="cadena" value="{{ c.id }}" checked disabled> {{ c.name }}</label>
+{% for c in chains %}{% if not c.failed %}<label><input type="checkbox" name="cadena" value="{{ c.id }}" data-name="{{ c.name }}" data-hint="{{ c.hint }}" checked disabled> {{ c.name }}</label>
 {% endif %}{% endfor %}</fieldset>
 <p><label for="f-min">Descuento</label>
 <select id="f-min" name="min" disabled>
@@ -51,6 +51,8 @@
 <h2>Mejores ofertas de {{ c.name }}</h2>
 {% if c.failed %}{% include "failed.html" %}
 {% else %}<p>{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
+{% if c.hint %}<p>{{ c.hint }}</p>
+{% endif %}
 {% with offers = c.top, start = none %}{% include "offers.html" %}{% endwith %}
 <p><a href="/{{ c.id }}/">Ver las {{ c.count_label }} ofertas de {{ c.name }}</a></p>
 {% endif %}
