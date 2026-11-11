@@ -1,0 +1,135 @@
+{
+ "contents": [
+  {
+   "Main": [
+    {
+     "contents": [
+      {
+       "totalNumRecs": 3129,
+       "firstRecNum": 1,
+       "records": [
+        {
+         "detailsAction": {
+          "recordState": "/tallarin-coto-espinaca-paquete-500-gr/_/A-00249351-00249351-200?format=json"
+         },
+         "records": [
+          {
+           "attributes": {
+            "product.repositoryId": [
+             "prod00249351"
+            ],
+            "product.displayName": [
+             "Tallarin COTO Espinaca Paquete 500 Gr"
+            ],
+            "product.eanPrincipal": [
+             "2800002493514"
+            ],
+            "sku.dtoPrice": [
+             "{\"id\":\"pl200_00249351\",\"skuId\":\"sku00249351\",\"precioLista\":2480.0,\"precio\":4960.0,\"precioSinImp\":2049.59,\"imagenOferta1\":\"oferta.png\"}"
+            ],
+            "product.dtoDescuentos": [
+             "[{\"id\":\"39224693\",\"textoVigencia\":\" \",\"textoPrecioRegular\":\"Precio Contado: $2480\",\"precioRegular\":\"\",\"textoDescuento\":\"25%Dto\",\"precioDescuento\":\"$1860.00\",\"precioDesc\":\"1860.00\",\"precioDescTextoAdicional\":\"\",\"imagenDescuento\":\" \",\"comentarios\":\" No acumulable con otras promos\"}]"
+            ],
+            "product.dtoDescuentosMediosPago": [
+             "[]"
+            ],
+            "product.mediumImage.url": [
+             "https://static.cotodigital3.com.ar/sitios/fotos/medium/00249300/00249351.jpg"
+            ],
+            "product.sDisp_165": [
+             "1004"
+            ],
+            "product.tipoOferta": [
+             "Hasta 30% DTO!!",
+             "Todas las Ofertas"
+            ]
+           }
+          }
+         ]
+        },
+        {
+         "detailsAction": {
+          "recordState": "/tallarin-coto-al-huevo-paquete-500-gr/_/A-00249350-00249350-200?format=json"
+         },
+         "records": [
+          {
+           "attributes": {
+            "product.repositoryId": [
+             "prod00249350"
+            ],
+            "product.displayName": [
+             "Tallarin COTO Al Huevo Paquete 500 Gr"
+            ],
+            "product.eanPrincipal": [
+             "2800002493507"
+            ],
+            "sku.dtoPrice": [
+             "{\"id\":\"pl200_00249350\",\"skuId\":\"sku00249350\",\"precioLista\":2480.0,\"precio\":4960.0,\"precioSinImp\":2049.59,\"imagenOferta1\":\"oferta.png\"}"
+            ],
+            "product.dtoDescuentos": [
+             "[{\"id\":\"39206053\",\"textoVigencia\":\" \",\"textoPrecioRegular\":\"Precio Contado: $2480\",\"precioRegular\":\"\",\"textoDescuento\":\"25%Dto\",\"precioDescuento\":\"$1860.00\",\"precioDesc\":\"1860.00\",\"precioDescTextoAdicional\":\"\",\"imagenDescuento\":\" \",\"comentarios\":\" No acumulable con otras promos\"}]"
+            ],
+            "product.dtoDescuentosMediosPago": [
+             "[]"
+            ],
+            "product.mediumImage.url": [
+             "https://static.cotodigital3.com.ar/sitios/fotos/medium/00249300/00249350.jpg"
+            ],
+            "product.sDisp_165": [
+             "1004"
+            ],
+            "product.tipoOferta": [
+             "Hasta 30% DTO!!",
+             "Todas las Ofertas"
+            ]
+           }
+          }
+         ]
+        },
+        {
+         "detailsAction": {
+          "recordState": "/tomate-perita-coto-pelado-lata-400-gr/_/A-00126332-00126332-200?format=json"
+         },
+         "records": [
+          {
+           "attributes": {
+            "product.repositoryId": [
+             "prod00126332"
+            ],
+            "product.displayName": [
+             "Tomate Perita COTO Pelado Lata 400 Gr"
+            ],
+            "product.eanPrincipal": [
+             "2800001263323"
+            ],
+            "sku.dtoPrice": [
+             "{\"id\":\"pl200_00126332\",\"skuId\":\"sku00126332\",\"precioLista\":2890.0,\"precio\":12041.66,\"precioSinImp\":2388.43,\"imagenOferta1\":\"oferta.png\"}"
+            ],
+            "product.dtoDescuentos": [
+             "[{\"id\":\"39220012\",\"textoVigencia\":\" \",\"textoPrecioRegular\":\"Precio Contado: $2890\",\"precioRegular\":\"\",\"textoDescuento\":\"25%Dto\",\"precioDescuento\":\"$2166.63\",\"precioDesc\":\"2166.63\",\"precioDescTextoAdicional\":\"\",\"imagenDescuento\":\" \",\"comentarios\":\" No acumulable con otras promos\"}]"
+            ],
+            "product.dtoDescuentosMediosPago": [
+             "[]"
+            ],
+            "product.mediumImage.url": [
+             "https://static.cotodigital3.com.ar/sitios/fotos/medium/00126300/00126332.jpg"
+            ],
+            "product.sDisp_165": [
+             "1004"
+            ],
+            "product.tipoOferta": [
+             "Hasta 30% DTO!!",
+             "Todas las Ofertas"
+            ]
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

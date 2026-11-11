@@ -1,0 +1,44 @@
+# Cadenas y sucursales de Rosario que se leen todos los días.
+# Cualquiera puede corregir este archivo con un PR, sin saber programar.
+# Detalle técnico de cada fuente: docs/context.md
+
+# Cómo se identifica el proyecto ante cada sitio. Cambiar por la URL del repo cuando exista.
+user_agent = "OfertasRosario/0.1 (proyecto open source sin fines de lucro)"
+
+# Pausa entre requests a un mismo sitio, en milisegundos.
+request_delay_ms = 1000
+
+[carrefour]
+enabled = true
+store = "Carrefour Hiper Fisherton (precios de la región Rosario)"
+# Seller de Rosario en la API de puntos de retiro. La región se arma como base64("SW#<seller>").
+seller = "carrefourar0018"
+# Categorías de supermercado (slugs de /api/catalog_system/pub/category/tree/1).
+categories = [
+  "almacen",
+  "desayuno-y-merienda",
+  "bebidas",
+  "lacteos-y-productos-frescos",
+  "carnes-y-pescados",
+  "frutas-y-verduras",
+  "panaderia",
+  "congelados",
+  "limpieza",
+  "perfumeria-y-farmacia",
+  "mundo-bebe",
+  "mascotas",
+]
+# Se deja de leer una categoría cuando la página ya no trae descuentos de al menos este %.
+min_discount_pct = 1
+
+[coto]
+enabled = true
+store = "Coto Alto Rosario (Av. Junín y Thedy)"
+# Número interno de la sucursal. Filtra los productos disponibles en esa tienda.
+store_id = "165"
+# Resultados por request. La API acepta hasta 500 sin problemas.
+page_size = 200
+
+[dar]
+enabled = true
+store = "DAR"

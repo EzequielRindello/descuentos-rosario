@@ -1,0 +1,77 @@
+{
+ "products": [
+  {
+   "productId": "783851",
+   "productName": "Leche condensada Nestlé tetra 395 grs",
+   "linkText": "leche-condensada-nestle-tetra-395-grs-783851",
+   "items": [
+    {
+     "ean": "8445291171138",
+     "images": [
+      {
+       "imageUrl": "https://carrefourar.vtexassets.com/arquivos/ids/921385/8445291171138_E02.jpg?v=639238008308730000"
+      }
+     ],
+     "sellers": [
+      {
+       "commertialOffer": {
+        "Price": 2837.65,
+        "ListPrice": 5675.3,
+        "AvailableQuantity": 10000
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "productId": "777257",
+   "productName": "Bolsa para Horno Maggi Finas Hierbas 24 grs",
+   "linkText": "bolsa-para-horno-maggi-finas-hierbas-24-grs-777257",
+   "items": [
+    {
+     "ean": "8445292042543",
+     "images": [
+      {
+       "imageUrl": "https://carrefourar.vtexassets.com/arquivos/ids/904598/8445292042543_01.jpg?v=639201503633270000"
+      }
+     ],
+     "sellers": [
+      {
+       "commertialOffer": {
+        "Price": 1842,
+        "ListPrice": 3070,
+        "AvailableQuantity": 10000
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "productId": "777264",
+   "productName": "Sazonador Maggi Completisimo 180 grs",
+   "linkText": "sazonador-maggi-completisimo-180-grs-777264",
+   "items": [
+    {
+     "ean": "7460123477814",
+     "images": [
+      {
+       "imageUrl": "https://carrefourar.vtexassets.com/arquivos/ids/904623/7460123477814_01.jpg?v=639201512203000000"
+      }
+     ],
+     "sellers": [
+      {
+       "commertialOffer": {
+        "Price": 4323,
+        "ListPrice": 7205,
+        "AvailableQuantity": 10000
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "recordsFiltered": 1715
+}

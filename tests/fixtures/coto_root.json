@@ -1,0 +1,68 @@
+{
+ "contents": [
+  {
+   "SecondaryContent": [
+    {
+     "@type": "RefinementMenu",
+     "dimensionName": "product.tipoOferta",
+     "multiSelect": true,
+     "refinements": [
+      {
+       "label": "2da Unid 50% DTO!!",
+       "count": 76,
+       "navigationState": "/_/N-2gxjyu?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "2da Unid 70% DTO!! ",
+       "count": 106,
+       "navigationState": "/_/N-1lv7l2p?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "2X1",
+       "count": 306,
+       "navigationState": "/_/N-1fa3vhj?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "3X2",
+       "count": 240,
+       "navigationState": "/_/N-1e9enqq?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "6X5",
+       "count": 5,
+       "navigationState": "/_/N-13bifjw?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "8X7",
+       "count": 4,
+       "navigationState": "/_/N-i76wr3?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "Exclusivas",
+       "count": 4307,
+       "navigationState": "/_/N-1nx2iz5?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "Hasta 20% DTO!!",
+       "count": 385,
+       "navigationState": "/_/N-3x35cv?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "Hasta 30% DTO!!",
+       "count": 3023,
+       "navigationState": "/_/N-glqtbz?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      },
+      {
+       "label": "Hasta 40% DTO!!",
+       "count": 1926,
+       "navigationState": "/_/N-oscpk3?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json"
+      }
+     ],
+     "moreLink": {
+      "navigationState": "?Nf=product.endDate%7CGTEQ+1.7943552E12%7C%7Cproduct.startDate%7CLTEQ+1.7943552E12&Nr=AND%28product.sDisp_200%3A1004%2Cproduct.language%3Aespa%C3%B1ol%2Cproduct.sDisp_165%3A1004%2COR%28product.siteId%3ACotoDigital%29%29&format=json&showMoreIds=657525838"
+     }
+    }
+   ]
+  }
+ ]
+}
