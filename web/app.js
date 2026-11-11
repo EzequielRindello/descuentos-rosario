@@ -19,8 +19,10 @@ if ('serviceWorker' in navigator) {
 function setupInstall() {
   const section = $('#instalar');
   if (!section) return;
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  if (standalone) return;
+  if (isInstalledApp()) {
+    warmUpIndex();
+    return;
+  }
 
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   section.hidden = false;
@@ -47,7 +49,20 @@ function setupInstall() {
   });
   window.addEventListener('appinstalled', () => {
     section.hidden = true;
+    warmUpIndex();
   });
+}
+
+// The installed app is the one used offline in the supermarket: download the search index in the
+// background so the service worker caches it. Browser visits only download it when searching.
+function warmUpIndex() {
+  const run = () => loadIndex().catch(() => {});
+  if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 5000 });
+  else setTimeout(run, 2000);
+}
+
+function isInstalledApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
 // ---------- Freshness notice ----------

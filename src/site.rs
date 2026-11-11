@@ -425,8 +425,9 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     fs::write(icons.join("maskable-512.png"), include_bytes!("../web/icons/maskable-512.png"))?;
     fs::write(icons.join("favicon.svg"), include_str!("../web/icons/favicon.svg"))?;
 
-    // Offline: the shell, the search index and the first page of each chain.
-    let mut precache = vec!["/".to_string(), "/app.js".into(), "/manifest.webmanifest".into(), "/datos/buscar.json".into(), "/icons/icon-192.png".into()];
+    // Offline: the shell and the first page of each chain. The search index (~100 KB compressed)
+    // is not precached: it is cached when first used, and app.js warms it up in the installed app.
+    let mut precache = vec!["/".to_string(), "/app.js".into(), "/manifest.webmanifest".into(), "/icons/icon-192.png".into()];
     precache.extend(chains.iter().map(|c| format!("/{}/", c.id)));
     let version = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
     let sw = include_str!("../web/sw.js").replace("__VERSION__", &version).replace("__PRECACHE__", &serde_json::to_string(&precache)?);
