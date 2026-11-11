@@ -113,11 +113,45 @@ html {
 
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: var(--font);
   font-size: 1rem;
   line-height: 1.5;
   color: var(--ink);
   background: var(--bg);
+}
+
+/* No one-word last lines in paragraphs; headings split into even lines. */
+p,
+li,
+dd {
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Keyboard: first stop on every page, visible only when focused. */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 30;
+  padding: 10px 16px;
+  border-radius: var(--radius-field);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 8px;
 }
 
 a {
@@ -231,11 +265,11 @@ select:disabled {
 
 /* The theme button shows what you switch to: moon in light mode, sun in dark mode. */
 .icon-btn .icon-sun,
-.icon-btn[aria-pressed='true'] .icon-moon {
+.icon-btn[data-dark='true'] .icon-moon {
   display: none;
 }
 
-.icon-btn[aria-pressed='true'] .icon-sun {
+.icon-btn[data-dark='true'] .icon-sun {
   display: block;
 }
 
@@ -320,6 +354,30 @@ select:disabled {
   display: none;
 }
 
+@media (max-width: 1023px) {
+  @supports (animation-timeline: scroll(inline)) {
+    .tabs ul {
+      animation: tabs-fade linear both;
+      animation-timeline: scroll(self inline);
+    }
+
+    @keyframes tabs-fade {
+      from {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+      }
+      99% {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+      }
+      to {
+        -webkit-mask-image: none;
+        mask-image: none;
+      }
+    }
+  }
+}
+
 .tabs a {
   display: block;
   padding: 10px 10px 9px;
@@ -341,6 +399,89 @@ select:disabled {
   border-bottom-color: var(--line);
 }
 
+/* Phones: the tabs row hides while scrolling down and comes back when scrolling up (app.js adds
+   .tabs-hidden). The header itself is see-through and lets clicks through: only the bar and the
+   tabs paint and take clicks, so the tabs slide up under the bar without moving the page. */
+@media (max-width: 1023px) {
+  .site-header {
+    background: transparent;
+    border-bottom: 0;
+    pointer-events: none;
+  }
+
+  /* Row 1: brand and buttons over a painted bar (the ::before cell); row 2: the tabs, under it. */
+  .header-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 12px;
+    padding: 0;
+  }
+
+  .header-inner::before {
+    content: '';
+    grid-row: 1;
+    grid-column: 1 / -1;
+    align-self: stretch; /* .header-inner centers its items; the bar must fill the row */
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    pointer-events: auto;
+  }
+
+  .brand,
+  .header-actions {
+    grid-row: 1;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+  }
+
+  .brand {
+    grid-column: 1;
+    margin: 8px 0 4px 16px;
+  }
+
+  .header-actions {
+    grid-column: 2;
+    margin: 8px 16px 4px 0;
+  }
+
+  .tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    position: relative;
+    margin: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    pointer-events: auto;
+  }
+
+  .tabs-hidden .tabs {
+    transform: translateY(-100%);
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .tabs-hidden .header-inner::before {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .install-help {
+    background: var(--surface);
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+  .tabs {
+    transition: transform 0.2s ease-out, visibility 0s;
+  }
+
+  .tabs-hidden .tabs {
+    transition: transform 0.2s ease-out, visibility 0s 0.2s;
+  }
+}
+
 .install-help {
   max-width: 1280px;
   margin: 0 auto;
@@ -352,9 +493,16 @@ select:disabled {
 /* ---------- Layout ---------- */
 
 main {
+  flex: 1 0 auto;
+  width: 100%;
   max-width: 1280px;
   margin: 0 auto;
   padding: 12px 16px 32px;
+}
+
+/* Target of the skip link (tabindex=-1): no ring around the whole page. */
+main:focus {
+  outline: none;
 }
 
 .lead {
@@ -652,7 +800,8 @@ select:focus {
   border-color: var(--danger);
 }
 
-#limpiar-filtros {
+#limpiar-filtros,
+#ver-resultados {
   width: 100%;
   justify-content: center;
 }
@@ -736,8 +885,8 @@ select:focus {
 }
 
 .quick-big {
-  font-size: 2.25rem;
-  font-weight: 800;
+  font-size: 1.75rem;
+  font-weight: 700;
   letter-spacing: -0.05em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -861,6 +1010,17 @@ select:focus {
   border-radius: var(--radius-field);
 }
 
+/* Dark mode: dim the white photo boxes so the grid doesn't glare. */
+:root[data-theme='dark'] .card > img {
+  filter: brightness(0.82);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .card > img {
+    filter: brightness(0.82);
+  }
+}
+
 .card-body {
   display: flex;
   flex-direction: column;
@@ -874,7 +1034,10 @@ select:focus {
 }
 
 .card-name {
+  margin: 0;
+  font-size: 1rem;
   font-weight: 600;
+  letter-spacing: normal;
   line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -899,6 +1062,12 @@ select:focus {
   font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+/* "c/u llevando 2": the price above is per unit when taking that many. */
+.per-unit {
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .before {
@@ -939,7 +1108,9 @@ select:focus {
   background: var(--sun);
 }
 
-.card-actions {
+/* ".card-body p { margin: 0 }" would win over a plain .card-actions and cancel margin-top: auto,
+   which keeps the actions at the bottom of the card (lined up across a row). */
+.card-body .card-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -982,6 +1153,31 @@ select:focus {
   border-bottom: 1px solid var(--border);
   padding: 8px 0;
   color: var(--muted);
+}
+
+@media (pointer: coarse) {
+  .btn-save,
+  .card-link {
+    min-height: 44px;
+  }
+
+  .card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* 404: one button per chain. */
+.not-found-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* ---------- Pagination ---------- */
@@ -1380,11 +1576,38 @@ select:focus {
     grid-row: 2;
   }
 
-  .search-layout .cards {
+  .search-layout .cards,
+  .home-layout .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filters-panel > summary {
+  .home-layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    column-gap: 24px;
+    align-items: start;
+  }
+
+  /* The search section's heading, form and results become cells of the home grid. */
+  .home-layout > .search-layout {
+    display: contents;
+  }
+
+  .home-layout > .search-layout > form {
+    grid-column: 1;
+    grid-row: 2 / span 12;
+  }
+
+  .home-layout > .search-layout > #resultados {
+    margin-bottom: 2rem;
+  }
+
+  .home-layout > section:not(.search-layout) {
+    grid-column: 2;
+  }
+
+  .filters-panel > summary,
+  .filters-done {
     display: none;
   }
 
@@ -1397,16 +1620,11 @@ select:focus {
     font-size: 3.25rem;
   }
 
-  /* FAQ: two balanced columns; each card stays whole. */
+  /* FAQ: two columns filled row by row, so the numbers read 01, 02, 03... left to right (CSS
+     columns read 01-07 down the left, then 08-16). */
   .info-faq .info-grid {
-    display: block;
-    columns: 2;
-    column-gap: 16px;
-  }
-
-  .info-faq .info-card {
-    break-inside: avoid;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
   }
 
   .info-privacy .info-grid {
@@ -1419,7 +1637,8 @@ select:focus {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .search-layout .cards {
+  .search-layout .cards,
+  .home-layout .cards {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

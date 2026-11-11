@@ -82,7 +82,7 @@ function setupTheme() {
   if (!button) return;
   const sync = () => {
     const dark = currentTheme() === 'dark';
-    button.setAttribute('aria-pressed', String(dark));
+    button.dataset.dark = String(dark);
     $('#tema-texto').textContent = dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
     button.title = $('#tema-texto').textContent;
   };
@@ -166,6 +166,7 @@ function setupFreshness() {
 
 // Rows of /datos/buscar.json: [key, chainName, name, price, listPrice, discountPct, promo, url].
 let indexPromise = null;
+let indexReady = false;
 function loadIndex() {
   if (!indexPromise) {
     indexPromise = fetch('/datos/buscar.json')
@@ -173,7 +174,15 @@ function loadIndex() {
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return response.json();
       })
-      .then((rows) => rows.map((row) => ({ row, text: normalize(row[2] + ' ' + row[1]) })));
+      .then((rows) => {
+        indexReady = true;
+        return rows.map((row) => ({ row, text: normalize(row[2] + ' ' + row[1]), name: normalize(row[2]) }));
+      })
+      .catch((error) => {
+        // Not cached: losing signal once in the supermarket must not break search until a reload.
+        indexPromise = null;
+        throw error;
+      });
   }
   return indexPromise;
 }
@@ -214,9 +223,19 @@ function icon(name) {
 }
 
 // Promo text worth showing next to the badge (same rule as promo_chip in src/site.rs): a bare
-// "35%Dto" repeats the badge and DAR's "Oferta" is on every offer, so neither is shown.
+// "35%Dto" repeats the badge and DAR's "Oferta" is on every offer, so neither is shown, and
+// "(Llevando N)" is already on the price line.
+const TAKING = /\s*\(?\s*llevando\s*(\d+)\s*\)?/gi;
+
+// "6x4 (Llevando 6)" -> 6: the price is per unit when taking that many (same rule as promo_units).
+function promoUnits(promo) {
+  const match = /llevando\s*(\d+)/i.exec(promo || '');
+  const units = match ? Number(match[1]) : 0;
+  return units > 1 ? units : 0;
+}
+
 function promoChip(promo) {
-  const text = (promo || '').trim();
+  const text = (promo || '').replace(TAKING, '').trim();
   if (!text || /^oferta$/i.test(text) || /^\d+\s*%\s*dto\.?$/i.test(text)) return '';
   return text;
 }
@@ -240,12 +259,14 @@ function renderList(rows) {
       item.append(img);
     }
     const priceLine = el('p', 'card-price', el('strong', 'price', formatArs(price)));
+    const units = promoUnits(promo);
+    if (units) priceLine.append(' ', el('span', 'per-unit', 'c/u llevando ' + units));
     if (listPrice) priceLine.append(' ', el('span', 'before', 'antes ', el('s', '', formatArs(listPrice))));
     let tags = null;
     const chip = promoChip(promo);
     if (listPrice || chip) {
       tags = el('p', 'card-tags');
-      if (listPrice) tags.append(el('em', discount >= 40 ? 'badge badge-big' : 'badge', '-' + discount + '%'));
+      if (listPrice) tags.append(el('em', discount >= 40 ? 'badge badge-big' : 'badge', '-' + discount + '%', el('span', 'visually-hidden', ' de descuento')));
       if (chip) tags.append(' ', el('span', 'chip', chip));
     }
     const actions = el('p', 'card-actions');
@@ -256,8 +277,8 @@ function renderList(rows) {
       link.target = '_blank';
       actions.append(link);
     }
-    actions.append(saveButton(key));
-    item.append(el('div', 'card-body', el('b', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, actions));
+    actions.append(saveButton(key, name));
+    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, actions));
     list.append(item);
   }
   return list;
@@ -383,7 +404,7 @@ function filtersFromUrl() {
   setPesos('#f-hasta', params.get('hasta'));
 }
 
-function filtersToUrl(filters) {
+function filtersToUrl(filters, push) {
   const params = new URLSearchParams();
   if (filters.q.trim()) params.set('q', filters.q.trim());
   if (!filters.allChains) params.set('cadena', filters.chains.join(','));
@@ -393,7 +414,10 @@ function filtersToUrl(filters) {
   if (filters.to) params.set('hasta', String(filters.to));
   if (filters.orden) params.set('orden', filters.orden);
   const query = params.toString().replace(/%2C/gi, ',');
-  history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+  const url = location.pathname + (query ? '?' + query : '') + location.hash;
+  if (url === location.pathname + location.search + location.hash) return;
+  if (push) history.pushState(null, '', url);
+  else history.replaceState(null, '', url);
 }
 
 let emptyState = null;
@@ -409,27 +433,60 @@ function setupSearch() {
   filtersFromUrl();
 
   let timer = null;
-  const update = () => {
+  const update = (push) => {
     shown = PAGE_SIZE;
     const filters = readFilters();
     showPriceValidation(filters.price);
     showQueryHint(filters);
-    filtersToUrl(filters);
+    filtersToUrl(filters, push === true);
     renderResults(filters, results);
   };
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    update();
+    update(true);
   });
-  form.addEventListener('change', update);
+  form.addEventListener('change', (event) => update(event.target.tagName === 'SELECT' || event.target.type === 'checkbox'));
   form.addEventListener('change', updateFilterCount);
   updateFilterCount();
+  // "Back" and "forward" over filter changes: read the filters again from the URL.
+  window.addEventListener('popstate', () => {
+    filtersFromUrl();
+    updateFilterCount();
+    shown = PAGE_SIZE;
+    const filters = readFilters();
+    showPriceValidation(filters.price);
+    showQueryHint(filters);
+    renderResults(filters, results);
+  });
+  // Phones: the open filters panel pushes the results down; this closes it and goes to them.
+  const seeResults = $('#ver-resultados');
+  if (seeResults) {
+    seeResults.addEventListener('click', () => {
+      const details = form.querySelector('.filters-panel');
+      if (details) details.open = false;
+      results.scrollIntoView({ block: 'start' });
+    });
+  }
+  // Buttons inside the results: start over (text included) after an empty search, or retry.
+  results.addEventListener('click', (event) => {
+    if (event.target.closest('button[data-retry]')) {
+      update();
+      return;
+    }
+    if (!event.target.closest('button[data-clear-all]')) return;
+    $('#q').value = '';
+    chainBoxes().forEach((box) => (box.checked = true));
+    ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
+    updateFilterCount();
+    update(true);
+    $('#q').focus();
+  });
   // "Limpiar filtros": back to every chain, any discount, promo and price, default order. Keeps the text.
   $('#limpiar-filtros').addEventListener('click', () => {
     chainBoxes().forEach((box) => (box.checked = true));
     ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
     updateFilterCount();
-    update();
+    update(true);
     $('#q').focus();
   });
   // The filters panel is a <details>: always open on wide screens (its toggle is hidden there).
@@ -446,7 +503,7 @@ function setupSearch() {
     const link = event.target.closest('a[data-quick]');
     if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    history.replaceState(null, '', link.pathname + link.search + location.hash);
+    history.pushState(null, '', link.pathname + link.search + location.hash);
     filtersFromUrl();
     updateFilterCount();
     update();
@@ -472,6 +529,13 @@ function setupSearch() {
   }
 }
 
+// "Ver 12 ofertas" under the filters on phones (null: no search running, plain "Ver ofertas").
+function syncSeeResults(count) {
+  const button = $('#ver-resultados');
+  if (!button) return;
+  button.textContent = count === null ? 'Ver ofertas' : count === 0 ? 'Ver resultados' : 'Ver ' + count.toLocaleString('es-AR') + (count === 1 ? ' oferta' : ' ofertas');
+}
+
 // "Filtros (2)": how many filters differ from the defaults, shown on the closed panel's toggle.
 function updateFilterCount() {
   const counter = $('#filtros-cuenta');
@@ -483,13 +547,36 @@ function updateFilterCount() {
   if (clear) clear.hidden = active === 0;
 }
 
+const byDiscount = (a, b) => (b[5] || 0) - (a[5] || 0) || a[3] - b[3];
+
 const SORTS = {
-  '': (a, b) => (b[5] || 0) - (a[5] || 0) || a[3] - b[3],
+  '': byDiscount,
+  descuento: byDiscount,
   precio: (a, b) => a[3] - b[3],
   nombre: (a, b) => a[2].localeCompare(b[2], 'es'),
 };
 
+// Names that start with the word first, then whole words, then the word anywhere.
+function relevance(name, words) {
+  let score = 0;
+  for (const word of words) {
+    if (name.startsWith(word)) score += 3;
+    else if (name.includes(' ' + word)) score += 2;
+    else if (name.includes(word)) score += 1;
+  }
+  return score;
+}
+
+// Screen readers hear only this summary, not every card of the new results.
+function announce(text) {
+  const status = $('#resultados-estado');
+  if (status && status.textContent !== text) status.textContent = text;
+}
+
+let renderId = 0;
+
 async function renderResults(filters, results) {
+  const render = ++renderId;
   const words = searchWords(filters.q);
   // On a chain page, a different order alone also needs the full list (the page only has 100).
   const filtering = words.length || !filters.allChains || filters.min || filters.promo || filters.from || filters.to || (isChainPage() && filters.orden);
@@ -502,33 +589,63 @@ async function renderResults(filters, results) {
     } else {
       results.replaceChildren();
     }
+    announce('');
+    syncSeeResults(null);
     return;
+  }
+  if (!indexReady) {
+    // First search: the index (about 250 KB) may take a while on a phone.
+    results.replaceChildren(el('p', 'results-count', 'Cargando las ofertas…'));
+    announce('Cargando las ofertas…');
   }
   let index;
   try {
     index = await loadIndex();
   } catch {
-    results.textContent = 'No se pudieron cargar las ofertas. Probá de nuevo en un rato.';
+    if (render !== renderId) return;
+    const retry = el('button', 'btn', 'Reintentar');
+    retry.type = 'button';
+    retry.dataset.retry = '';
+    const message = navigator.onLine === false ? 'Sin conexión: no se pudieron cargar las ofertas para buscar.' : 'No se pudieron cargar las ofertas para buscar.';
+    results.replaceChildren(el('p', 'results-count', message), el('p', '', retry));
+    announce(message);
+    syncSeeResults(null);
     return;
   }
+  // A newer search started while this one waited for the index.
+  if (render !== renderId) return;
   const chains = new Set(filters.chains);
-  const matches = index
-    .filter((entry) => words.every((word) => entry.text.includes(word)))
+  const relevant = words.length > 0 && !filters.orden;
+  const found = index.filter((entry) => words.every((word) => entry.text.includes(word)));
+  const score = new Map(relevant ? found.map((entry) => [entry.row, relevance(entry.name, words)]) : []);
+  const matches = found
     .map((entry) => entry.row)
     .filter((row) => chains.has(row[0].split(':')[0]))
     .filter((row) => !filters.min || (row[5] || 0) >= filters.min)
     .filter((row) => !filters.promo || promoKind(row) === filters.promo)
     .filter((row) => !filters.from || row[3] >= filters.from * 100)
     .filter((row) => !filters.to || row[3] <= filters.to * 100)
-    .sort(SORTS[filters.orden] || SORTS['']);
+    .sort(relevant ? (a, b) => score.get(b) - score.get(a) || byDiscount(a, b) : SORTS[filters.orden] || SORTS['']);
 
   const parts = [];
   const summary = document.createElement('p');
   summary.className = 'results-count';
   summary.textContent = matches.length
     ? matches.length + (matches.length === 1 ? ' oferta' : ' ofertas') + (matches.length > shown ? '. Mostrando ' + shown + '.' : '.')
-    : 'No hay ofertas con estos filtros hoy.';
+    : words.length
+      ? 'Hoy no hay ofertas de "' + filters.q.trim() + '" con estos filtros.'
+      : 'No hay ofertas con estos filtros hoy.';
   parts.push(summary);
+  announce(summary.textContent);
+  syncSeeResults(matches.length);
+  if (!matches.length) {
+    // A way out: other words, or start over.
+    const clear = el('button', 'btn', 'Borrar la búsqueda y los filtros');
+    clear.type = 'button';
+    clear.dataset.clearAll = '';
+    const tip = words.length ? 'Probá con menos palabras o con otra forma de escribirlo (por ejemplo "gaseosa" en vez de "coca").' : 'Probá con menos filtros.';
+    parts.push(el('p', 'results-hint', tip), el('p', '', clear));
+  }
   if ((filters.min || filters.promo === 'rebaja') && chains.has('dar')) {
     const note = document.createElement('p');
     note.className = 'results-hint';
@@ -586,19 +703,24 @@ function isSaved(key) {
   return readSaved().some((item) => item.key === key);
 }
 
-function saveButton(key) {
+function saveButton(key, name) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn-save';
   button.dataset.fav = key;
+  if (name) button.dataset.name = name;
   syncButton(button, isSaved(key));
   return button;
 }
 
+// Visible text "Guardar" / "Descartar"; screen readers also hear which product.
 function syncButton(button, saved) {
   button.hidden = false;
   button.dataset.saved = String(saved);
   button.textContent = saved ? 'Descartar' : 'Guardar';
+  const title = button.closest('li') && button.closest('li').querySelector('.card-name');
+  const name = button.dataset.name || (title ? title.textContent : '');
+  if (name) button.setAttribute('aria-label', (saved ? 'Descartar ' : 'Guardar ') + name);
 }
 
 const CHAIN_NAMES = { carrefour: 'Carrefour', coto: 'Coto', dar: 'DAR' };
@@ -620,8 +742,8 @@ function setupSaved() {
     if (saved) {
       writeSaved(items.filter((item) => item.key !== key));
     } else {
-      const title = button.closest('li') && button.closest('li').querySelector('b');
-      writeSaved([...items, { key, name: title ? title.textContent : null }]);
+      const title = button.closest('li') && button.closest('li').querySelector('.card-name');
+      writeSaved([...items, { key, name: button.dataset.name || (title ? title.textContent : null) }]);
     }
     document.querySelectorAll('button[data-fav="' + CSS.escape(key) + '"]').forEach((b) => syncButton(b, !saved));
     renderSaved();
@@ -658,7 +780,7 @@ async function renderSaved() {
     note.className = 'lead';
     const list = el('ul', 'gone-list');
     for (const item of gone) {
-      list.append(el('li', '', el('span', '', (item.name || 'Un producto guardado') + ' (' + chainOf(item.key) + ')'), saveButton(item.key)));
+      list.append(el('li', '', el('span', '', (item.name || 'Un producto guardado') + ' (' + chainOf(item.key) + ')'), saveButton(item.key, item.name)));
     }
     container.append(note, list);
   }
@@ -695,7 +817,39 @@ function setupToTop() {
   sync();
 }
 
+// ---------- Header on phones ----------
+// Scrolling down hides the tabs row (only the brand and buttons stay); scrolling up brings it back.
+// The CSS only applies it below 1024 px and slides it under the bar, so the page never moves.
+
+function setupHeader() {
+  const header = $('.site-header');
+  if (!header) return;
+  const narrow = window.matchMedia('(max-width: 1023px)');
+  let lastY = window.scrollY;
+  let ticking = false;
+  const sync = () => {
+    const y = window.scrollY;
+    if (!narrow.matches || y < header.offsetHeight) header.classList.remove('tabs-hidden');
+    else if (y > lastY + 6) header.classList.add('tabs-hidden');
+    else if (y < lastY - 6) header.classList.remove('tabs-hidden');
+    if (Math.abs(y - lastY) > 6 || y < header.offsetHeight) lastY = y;
+    ticking = false;
+  };
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(sync);
+      }
+    },
+    { passive: true }
+  );
+  narrow.addEventListener('change', sync);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  setupHeader();
   setupTheme();
   setupToTop();
   setupInstall();

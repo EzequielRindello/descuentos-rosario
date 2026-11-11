@@ -3,5 +3,6 @@
 <article class="prose">
 <h1>No encontramos esa página</h1>
 <p>Puede que la oferta ya no exista. Volvé al <a href="/">inicio</a> para ver las ofertas de hoy.</p>
+<p class="not-found-links">{% for c in chains %}{% if not c.failed %}<a class="btn" href="/{{ c.id }}/">Ofertas de {{ c.name }}</a> {% endif %}{% endfor %}</p>
 </article>
 {% endblock %}

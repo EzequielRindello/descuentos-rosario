@@ -4,10 +4,12 @@
 <h1>Ofertas de supermercados en Rosario</h1>
 <p class="lead">Actualizado el {{ updated }}. {% if available_label %}Hoy hay <strong>{{ total_label }}</strong> ofertas de {{ available_label }}.{% else %}Hoy no pudimos leer las ofertas de ninguna cadena.{% endif %}</p>
 
+<div class="home-layout">
 <section id="buscar" class="search-layout">
 <h2>Buscar y filtrar</h2>
 {% include "search_form.html" %}
-<div id="resultados" aria-live="polite"><div class="results-empty quick">
+<p id="resultados-estado" class="visually-hidden" aria-live="polite"></p>
+<div id="resultados"><div class="results-empty quick">
 <p class="quick-intro"><strong>Buscá un producto o usá los filtros.</strong> Por ejemplo:</p>
 {% if quick.min50 or quick.min40 or quick.nxm or quick.second %}<ul class="quick-grid">
 {% if quick.min50 %}<li><a class="quick-card quick-hot" href="/?min=50#buscar" data-quick><span class="quick-big">50%</span> <span class="quick-label">o más de descuento</span> <span class="quick-count">{{ quick.min50 }} ofertas {{ icon.arrow_right() }}</span></a></li>
@@ -15,7 +17,7 @@
 {% endif %}{% if quick.nxm %}<li><a class="quick-card quick-sun" href="/?promo=nxm#buscar" data-quick><span class="quick-big">2x1</span> <span class="quick-label">y 3x2</span> <span class="quick-count">{{ quick.nxm }} ofertas {{ icon.arrow_right() }}</span></a></li>
 {% endif %}{% if quick.second %}<li><a class="quick-card quick-soft" href="/?promo=2da#buscar" data-quick><span class="quick-big">2da</span> <span class="quick-label">unidad con descuento</span> <span class="quick-count">{{ quick.second }} ofertas {{ icon.arrow_right() }}</span></a></li>
 {% endif %}</ul>
-{% endif %}{% if quick.words %}<p class="quick-words"><span>Probá con:</span> {% for w in quick.words %}<a href="/?q={{ w.word }}#buscar" data-quick>{{ w.word }} <span class="quick-words-count">{{ w.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
+{% endif %}{% if quick.words %}<p class="quick-words"><span>Probá con:</span> {% for w in quick.words %}<a href="/?q={{ w.query }}#buscar" data-quick>{{ w.word }} <span class="quick-words-count">{{ w.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
 {% endif %}</div></div>
 </section>
 
@@ -27,7 +29,7 @@
 
 {% for c in chains %}
 <section>
-<h2>Mejores ofertas de {{ c.name }}</h2>
+<h2>{% if c.has_list_prices or c.failed %}Mejores ofertas{% else %}Algunas ofertas{% endif %} de {{ c.name }}</h2>
 {% if c.failed %}{% include "failed.html" %}
 {% else %}<p class="lead">{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
 {% if c.hint %}<p class="note">{{ c.hint }}</p>
@@ -41,6 +43,8 @@
 <section class="prose">
 <h2>Cómo funciona</h2>
 <p>Todas las mañanas se revisan las webs de cada supermercado y se guardan las ofertas con precio de Rosario: precio de oferta, precio anterior cuando la cadena lo publica, y promociones como 2x1 o 70% en la segunda unidad.</p>
-<p>Los descuentos se calculan contra el precio anterior que muestra cada cadena. Si ese precio no es creíble (más de 5 veces el actual), se descarta.</p>
+<p>Los descuentos se calculan contra el precio anterior que muestra cada cadena. Si ese precio no es creíble (más de 5 veces el actual), se descarta. Los de 40% o más se marcan en rojo.</p>
+<p>En las promos por cantidad (2x1, 70% en la segunda, llevando 6...), el precio es por unidad llevando esa cantidad: dice "c/u llevando 2". Si comprás una sola, pagás el precio anterior.</p>
 </section>
+</div>
 {% endblock %}

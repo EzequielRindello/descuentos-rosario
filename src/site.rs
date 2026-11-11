@@ -49,6 +49,8 @@ struct OfferView {
     list_price: Option<String>,
     discount_pct: Option<u8>,
     promo: Option<String>,
+    /// "Llevando N" promos: the price is per unit when taking this many, not the shelf price.
+    units: Option<u8>,
     url: Option<String>,
     /// Thumbnail URL on the chain's image server (Carrefour and Coto only).
     image: Option<String>,
@@ -102,7 +104,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
             count_label: group_thousands(c.offers.len() as u64),
             has_list_prices: c.offers.iter().any(|o| o.list_price.is_some()),
             failed: c.failed,
-            top: c.offers.iter().take(site.home_per_chain).map(view).collect(),
+            top: highlights(&c.offers, site.home_per_chain).into_iter().map(view).collect(),
         })
         .collect();
     let total: usize = chains.iter().map(|c| c.offers.len()).sum();
@@ -110,7 +112,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     let mut sitemap = vec![format!("{}/", site.url), format!("{}/datos/", site.url)];
 
     // Home.
-    let home_offers: Vec<&Offer> = chains.iter().flat_map(|c| c.offers.iter().take(site.home_per_chain)).collect();
+    let home_offers: Vec<&Offer> = chains.iter().flat_map(|c| highlights(&c.offers, site.home_per_chain)).collect();
     let home_ld = json!([
         { "@context": "https://schema.org", "@type": "WebSite", "name": site.name, "url": format!("{}/", site.url),
           "inLanguage": "es-AR", "description": site.description },
@@ -196,10 +198,13 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         })))?;
     }
 
+    // No canonical: the 404 is served for any unknown URL and is not the home page (it used to
+    // point at "/", which also marked "Inicio" as the current tab).
     render(&env, "404.html", &out_dir.join("404.html"), &context(site, &updated, &chain_views, json!({
         "title": format!("Página no encontrada | {}", site.name),
         "description": site.description,
-        "canonical": format!("{}/", site.url),
+        "canonical": "",
+        "noindex": true,
     })))?;
 
     write_static_assets(out_dir, &chain_views)?;
@@ -308,6 +313,18 @@ fn rank(a: &Offer, b: &Offer) -> Ordering {
     b.discount_pct.unwrap_or(0).cmp(&a.discount_pct.unwrap_or(0)).then_with(|| a.name.cmp(&b.name))
 }
 
+/// The home page's "best offers" of a chain: in rank order, but one per product kind (first word
+/// of the name), so five sizes of the same dog collar or every flavor of a jelly don't fill the
+/// list. For a chain without discounts (DAR) this also spreads the list over different products.
+fn highlights(offers: &[Offer], n: usize) -> Vec<&Offer> {
+    let mut seen = std::collections::HashSet::new();
+    offers
+        .iter()
+        .filter(|offer| seen.insert(fold(offer.name.split(|c: char| !c.is_alphanumeric()).find(|w| !w.is_empty()).unwrap_or(""))))
+        .take(n)
+        .collect()
+}
+
 fn view(offer: &Offer) -> OfferView {
     OfferView {
         key: format!("{}:{}", offer.chain.id(), offer.id),
@@ -317,17 +334,29 @@ fn view(offer: &Offer) -> OfferView {
         list_price: offer.list_price.map(format_ars),
         discount_pct: offer.discount_pct,
         promo: promo_chip(offer.promo.as_deref()),
+        units: promo_units(offer.promo.as_deref()),
         url: offer.url.clone(),
         image: thumbnail(offer),
     }
 }
 
+static TAKING: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?i)\s*\(?\s*llevando\s*(\d+)\s*\)?").expect("valid regex"));
+
+/// "6x4 (Llevando 6)" -> 6: the offer price is per unit when taking that many (Coto's multi-buy
+/// promos). Same rule as `promoUnits` in app.js.
+fn promo_units(promo: Option<&str>) -> Option<u8> {
+    let units: u8 = TAKING.captures(promo?)?.get(1)?.as_str().parse().ok()?;
+    (units > 1).then_some(units)
+}
+
 /// Promo text worth showing next to the discount badge. Hidden when it repeats what the page
 /// already says: a bare "35%Dto" (the badge shows the discount) or DAR's generic "Oferta" (every
-/// DAR offer has it). The full text stays in the data files. Same rule as `promoChip` in app.js.
+/// DAR offer has it). "(Llevando N)" is dropped: the price line already says "c/u llevando N".
+/// The full text stays in the data files. Same rule as `promoChip` in app.js.
 fn promo_chip(promo: Option<&str>) -> Option<String> {
     static BARE_PCT: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?i)^\d+\s*%\s*dto\.?$").expect("valid regex"));
-    let promo = promo?.trim();
+    let promo = TAKING.replace_all(promo?, "");
+    let promo = promo.trim();
     (!promo.is_empty() && !promo.eq_ignore_ascii_case("oferta") && !BARE_PCT.is_match(promo)).then(|| promo.to_string())
 }
 
@@ -363,17 +392,47 @@ fn quick_counts(chains: &[ChainData]) -> serde_json::Value {
         "second": label(offers().filter(|o| promo_kind(o) == "2da").count()),
         "words": QUICK_WORDS
             .iter()
-            .filter_map(|word| {
-                let folded = fold(word);
-                let n = offers().filter(|o| fold(&o.name).contains(folded.as_str())).count();
-                label(n).map(|count| json!({ "word": word, "count": count }))
+            .filter_map(|phrase| {
+                let n = offers().filter(|o| matches_search(&o.name, phrase)).count();
+                // "+" for spaces: URLSearchParams reads it back as a space.
+                label(n).map(|count| json!({ "word": phrase, "query": phrase.replace(' ', "+"), "count": count }))
             })
             .collect::<Vec<_>>(),
     })
 }
 
-/// Everyday products suggested under the home search box (only those with offers today).
-const QUICK_WORDS: [&str; 8] = ["yerba", "leche", "aceite", "café", "fideos", "arroz", "queso", "galletitas"];
+/// Same rule as the search in app.js: every word of two letters or more appears in the name, in
+/// any order ("alimento para perro" finds "Alimento seco para perro Pedigree").
+fn matches_search(name: &str, phrase: &str) -> bool {
+    let name = fold(name);
+    fold(phrase).split_whitespace().filter(|w| w.chars().count() > 1).all(|w| name.contains(w))
+}
+
+/// Everyday products suggested under the home search box (only those with offers today): the
+/// basic food basket first, then drinks, cleaning, diapers and pet food. Words that also match
+/// unrelated products by substring are left out ("pan" finds "panales", "vino" finds "vinagre",
+/// "pollo" finds chicken-flavored dog food).
+const QUICK_WORDS: [&str; 19] = [
+    "yerba",
+    "leche",
+    "carne",
+    "huevos",
+    "fideos",
+    "arroz",
+    "harina",
+    "azúcar",
+    "aceite",
+    "queso",
+    "galletitas",
+    "café",
+    "gaseosa",
+    "cerveza",
+    "papel higiénico",
+    "detergente",
+    "pañales",
+    "alimento para perro",
+    "alimento para gato",
+];
 
 /// Lowercase without accents, like `normalize` in app.js (enough for Spanish product names).
 fn fold(text: &str) -> String {
@@ -656,9 +715,49 @@ mod tests {
         assert_eq!(promo_chip(Some("35%Dto")), None);
         assert_eq!(promo_chip(Some("Oferta")), None);
         assert_eq!(promo_chip(None), None);
-        assert_eq!(promo_chip(Some("35%Dto (Llevando 2)")).as_deref(), Some("35%Dto (Llevando 2)"));
-        assert_eq!(promo_chip(Some("2x1 (Llevando 2)")).as_deref(), Some("2x1 (Llevando 2)"));
-        assert_eq!(promo_chip(Some("70% 2da (Llevando 2)")).as_deref(), Some("70% 2da (Llevando 2)"));
+        // "(Llevando N)" moves to the price line ("c/u llevando N").
+        assert_eq!(promo_chip(Some("35%Dto (Llevando 2)")), None);
+        assert_eq!(promo_chip(Some("2x1 (Llevando 2)")).as_deref(), Some("2x1"));
+        assert_eq!(promo_chip(Some("70% 2da (Llevando 2)")).as_deref(), Some("70% 2da"));
+    }
+
+    #[test]
+    fn suggested_phrases_count_like_the_search() {
+        assert!(matches_search("Alimento seco para perro Pedigree 3 kg", "alimento para perro"));
+        assert!(matches_search("Pañales Huggies Protect Plus", "pañales"));
+        assert!(matches_search("PAPEL HIGIENICO DOBLE HOJA", "papel higiénico"));
+        assert!(!matches_search("Collar para perro Vitalfun", "alimento para perro"));
+    }
+
+    #[test]
+    fn multi_buy_price_is_per_unit() {
+        assert_eq!(promo_units(Some("6x4 (Llevando 6)")), Some(6));
+        assert_eq!(promo_units(Some("70% 2da (Llevando 2)")), Some(2));
+        assert_eq!(promo_units(Some("Llevando 1")), None);
+        assert_eq!(promo_units(Some("35%Dto")), None);
+        assert_eq!(promo_units(None), None);
+    }
+
+    #[test]
+    fn highlights_skip_variants_of_the_same_product() {
+        let offer = |name: &str| Offer {
+            chain: Chain::Dar,
+            store: "x".into(),
+            id: name.into(),
+            ean: None,
+            name: name.into(),
+            price: 100,
+            list_price: None,
+            discount_pct: None,
+            promo: None,
+            url: None,
+            image: None,
+            source: crate::model::Source::Web,
+        };
+        let offers = ["Gelatina Anana", "Gelatina Cereza", "ACONDIC. SEDAL", "ACONDIC.PLUSBELLE", "Acondic. Dove", "Yerba"].map(offer);
+        let names: Vec<&str> = highlights(&offers, 8).iter().map(|o| o.name.as_str()).collect();
+        assert_eq!(names, ["Gelatina Anana", "ACONDIC. SEDAL", "Yerba"]);
+        assert_eq!(highlights(&offers, 2).len(), 2);
     }
 
     #[test]

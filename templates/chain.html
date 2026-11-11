@@ -3,7 +3,7 @@
 {% block main %}
 <h1>Ofertas de {{ chain.name }} en Rosario</h1>
 {% if chain.failed %}{% with c = chain %}{% include "failed.html" %}{% endwith %}
-{% else %}<p class="lead">{{ chain.store }}. {{ chain.count_label }} ofertas, actualizadas el {{ updated }}.{% if pages > 1 %} Página {{ page }} de {{ pages }}.{% endif %}</p>
+{% else %}<p class="lead">{{ chain.store }}. {{ chain.count_label }} ofertas, actualizadas el {{ updated }}.</p>
 {% if chain.hint %}<p class="note">{{ chain.hint }}</p>
 {% endif %}{% endif %}
 {% if not chain.failed and not chain.has_list_prices %}<p class="lead">{{ chain.name }} no publica el precio anterior de sus ofertas, así que acá solo se muestra el precio final.</p>
@@ -11,7 +11,8 @@
 {% if not chain.failed %}<section id="buscar" class="search-layout">
 <h2>Buscar y filtrar en {{ chain.name }}</h2>
 {% with fixed = chain %}{% include "search_form.html" %}{% endwith %}
-<div id="resultados" aria-live="polite"><div class="results-static">
+<p id="resultados-estado" class="visually-hidden" aria-live="polite"></p>
+<div id="resultados"><div class="results-static">
 {% include "offers.html" %}
 {% if pages > 1 %}
 <nav class="pager" aria-label="Páginas">

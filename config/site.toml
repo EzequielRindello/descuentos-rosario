@@ -11,7 +11,7 @@ description = "Las ofertas de los supermercados de Rosario, todos los días: Cot
 per_page = 100
 
 # Ofertas por cadena en la portada.
-home_per_chain = 20
+home_per_chain = 6
 
 # Mail de contacto (se muestra en preguntas frecuentes, términos y privacidad). Vacío = no se muestra.
 contact = "rindello14@gmail.com"
