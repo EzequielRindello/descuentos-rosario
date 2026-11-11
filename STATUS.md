@@ -142,6 +142,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Actions del workflow fijadas por SHA, `wrangler` a versión exacta (de al menos dos semanas) y Dependabot | Una versión nueva comprometida correría con permiso de escribir en el repo y con el token de Cloudflare. Con SHA, lo que corre no cambia sin un PR. |
 | 11/11/2026 | DAR figura solo como "DAR", sin sucursal ni dirección | La dirección que había era un dato personal del mantenedor. |
 | 11/11/2026 | Capturas del README recién después de los estilos | Sin estilos no muestran nada útil. |
+| 11/11/2026 | Aviso de fecha en la página en vez de cambiar la estrategia de caché | El caché sirve sin señal en el súper y no hay que perderlo. Lo que faltaba era decir de qué día son las ofertas cuando no son de hoy. "Todavía no están las de hoy" también cubre el rato antes de la corrida y una corrida fallida. |
 | 11/11/2026 | El workflow no hace `pull --rebase` antes de pushear `data/` | Si se pushea algo mientras corre, que falle y quede registrado; se aprende de eso. Los datos de ese día igual quedan publicados en la web. |
 | 11/11/2026 | El subdominio `workers.dev` lleva el nombre del mantenedor y se deja así por ahora (excepción a "sin datos personales") | Cambiarlo no aporta hasta tener dominio propio; se reemplaza junto con el dominio. |
 
@@ -164,7 +165,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
 13. [x] **Favicon**: flecha de cursor blanca sobre negro (`web/icons/favicon.svg` + PNG 192/512/maskable). Provisorio hasta los estilos. (`f6dc91a`, `71ce648`)
 14. [x] **Seguridad, arreglos rápidos**: headers en `web/_headers` (CSP que solo permite el propio sitio, `frame-ancestors 'none'`, Permissions-Policy, COOP, HSTS) y links a las cadenas solo si son `https://`. Probado en local con un servidor que aplica `_headers`: sin errores de CSP. Falta verlo en producción. (`f6dc91a`, `71ce648`)
 15. [x] **Seguridad del workflow**: actions fijadas por SHA (`actions/checkout` v7.0.1, que ya corre en Node 24; `dtolnay/rust-toolchain` stable; `Swatinem/rust-cache` v2.9.3), `wrangler@4.155.0` exacto y Dependabot semanal para Cargo y Actions (`.github/dependabot.yml`). `wrangler` se actualiza a mano: Dependabot no ve `npx`. Falta verlo en una corrida real. (`957df38`)
-16. [ ] **Datos viejos en caché**: si el celu muestra páginas guardadas (sin señal, o la red tarda más de 4 s), avisarlo: "Sin conexión: estas ofertas son del DD/MM". Hoy el service worker cae al caché sin decir nada. La revalidación de `datos/` ya está (`max-age=0, must-revalidate`).
+16. [x] **Datos viejos en caché**: cada página lleva la fecha de sus datos (`body[data-updated]`) y `app.js` la compara con `/datos/actualizado.json`, que el service worker nunca cachea. Avisa "Hay ofertas más nuevas (Recargar)", "Sin conexión: estas ofertas son del DD/MM", o "Todavía no están las ofertas de hoy". Si todo es de hoy, nada. Vuelve a chequear al reconectarse o al volver a la app. Probados los cuatro casos en Chrome. (commit pendiente)
 17. [ ] **Filtros y orden (UX)**: en la búsqueda y en las páginas de cadena, filtrar por descuento mínimo y tipo de promo (2x1, 2da unidad) y ordenar por descuento o precio. Por categoría hace falta guardar la categoría en `Offer` (ver Pendientes). Definir el diseño antes de implementarlo.
 18. [ ] **Performance**: el service worker precachea `buscar.json` (1,4 MB sin comprimir) en la primera visita; pasarlo a bajo demanda. Medir con Lighthouse (pide `npx lighthouse`, consultar antes de descargarlo). Las páginas de cadena pesan ~100 KB de HTML.
 19. [ ] **Rate limiting**: con `workers.dev` no se puede. Los archivos estáticos de Workers son gratis y sin límite, y Cloudflare frena los DDoS solo, así que hoy no hay costo ni riesgo de quedarse sin cuota. Con dominio propio, sumar una regla de rate limiting de Cloudflare (el plan gratis trae una).
@@ -209,6 +210,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `6c3caa7` | 11/11/2026 | DAR figura solo como "DAR": sin la dirección personal en la config ni en el brief. |
 | `957df38` | 11/11/2026 | Workflow con actions fijadas por SHA, `wrangler` exacto y Dependabot. |
 | `71ce648` | 11/11/2026 | Contacto por mail y guardados con nombre y botón "Descartar". |
 | `f6dc91a` | 11/11/2026 | Páginas de preguntas, términos y privacidad, favicon de flecha y headers de seguridad. |

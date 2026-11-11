@@ -24,7 +24,7 @@
 {% if json_ld %}<script type="application/ld+json">{{ json_ld|safe }}</script>
 {% endif %}<script src="/app.js" defer></script>
 </head>
-<body>
+<body data-updated="{{ updated_iso }}">
 <header>
 <p><a href="/">{{ site.name }}</a></p>
 <nav aria-label="Secciones">
@@ -45,6 +45,7 @@
 </section>
 
 <main>
+<div id="aviso-fecha" role="status" hidden></div>
 {% block main %}{% endblock %}
 </main>
 

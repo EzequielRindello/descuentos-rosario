@@ -51,6 +51,66 @@ function setupInstall() {
   });
 }
 
+// ---------- Freshness notice ----------
+// Pages carry the time of their data (body[data-updated]). The service worker may serve an old
+// copy (offline, or slow network), so compare it with /datos/actualizado.json, which the service
+// worker never caches, and say so when the offers on screen are not today's.
+
+const TIME_ZONE = 'America/Argentina/Buenos_Aires';
+const dayKey = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(date);
+const dayLabel = (date) => new Intl.DateTimeFormat('es-AR', { timeZone: TIME_ZONE, day: '2-digit', month: '2-digit' }).format(date);
+
+async function fetchLatestUpdate() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch('/datos/actualizado.json', { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) return { state: 'unknown' };
+    const date = new Date((await response.json()).generated_at);
+    return Number.isNaN(date.getTime()) ? { state: 'unknown' } : { state: 'online', date };
+  } catch {
+    return { state: 'offline' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function checkFreshness() {
+  const notice = $('#aviso-fecha');
+  const pageDate = new Date(document.body.dataset.updated || '');
+  if (!notice || Number.isNaN(pageDate.getTime())) return;
+  const fromToday = dayKey(pageDate) === dayKey(new Date());
+  const latest = await fetchLatestUpdate();
+
+  notice.replaceChildren();
+  if (latest.state === 'online' && latest.date > pageDate) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Recargar';
+    button.addEventListener('click', () => location.reload());
+    notice.append('Hay ofertas más nuevas (del ' + dayLabel(latest.date) + '). ', button);
+  } else if (fromToday) {
+    notice.hidden = true;
+    return;
+  } else if (latest.state === 'offline') {
+    notice.textContent = 'Sin conexión: estas ofertas son del ' + dayLabel(pageDate) + ' y pueden haber cambiado.';
+  } else if (latest.state === 'online') {
+    notice.textContent = 'Todavía no están las ofertas de hoy (se actualizan a la mañana). Estas son del ' + dayLabel(pageDate) + '.';
+  } else {
+    notice.textContent = 'Estas ofertas son del ' + dayLabel(pageDate) + ' y pueden haber cambiado.';
+  }
+  notice.hidden = false;
+}
+
+function setupFreshness() {
+  checkFreshness();
+  // An installed app can stay open for days: check again when it comes back or reconnects.
+  window.addEventListener('online', checkFreshness);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkFreshness();
+  });
+}
+
 // ---------- Data ----------
 
 // Rows of /datos/buscar.json: [key, chainName, name, price, listPrice, discountPct, promo, url].
@@ -263,6 +323,7 @@ async function renderSaved() {
 
 document.addEventListener('DOMContentLoaded', () => {
   setupInstall();
+  setupFreshness();
   setupSearch();
   setupSaved();
 });

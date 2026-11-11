@@ -75,7 +75,10 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     let report = read_report(data_dir);
     let updated = updated_label(report.as_ref());
     let chains = load_chains(data_dir, stores, report.as_ref())?;
-    let env = environment()?;
+    // Machine-readable run time: pages carry it so app.js can tell stale (cached) pages apart.
+    let updated_iso = report.as_ref().map(|r| r.generated_at.clone()).unwrap_or_default();
+    let mut env = environment()?;
+    env.add_global("updated_iso", updated_iso.clone());
 
     if out_dir.exists() {
         fs::remove_dir_all(out_dir).with_context(|| format!("cleaning {}", out_dir.display()))?;
@@ -166,6 +169,8 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "canonical": format!("{}/datos/", site.url),
     })))?;
     write_data_files(out_dir, &chains)?;
+    // Tiny file the service worker never caches: app.js compares it with the page's own date.
+    fs::write(out_dir.join("datos/actualizado.json"), serde_json::to_string(&json!({ "generated_at": updated_iso }))?)?;
 
     // Info pages: FAQ, terms, privacy.
     let info_pages = [

@@ -38,6 +38,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
 | `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
 | `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url]`. |
+| `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
 | `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto y `max-age=0, must-revalidate` (el HTML ya sale así por defecto). Para todo: CSP solo `'self'` (nada de terceros ni inline), `frame-ancestors 'none'`, Permissions-Policy, COOP y HSTS. Si se suma un recurso externo o un estilo inline, hay que tocar la CSP. |

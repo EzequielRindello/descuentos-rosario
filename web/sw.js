@@ -27,7 +27,10 @@ self.addEventListener('activate', (event) => {
 // Network first (prices change every day), cache as fallback when offline or slow.
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Freshness check (see app.js): always straight to the network, never from the cache.
+  if (url.pathname === '/datos/actualizado.json') return;
   event.respondWith(networkFirst(request));
 });
 
