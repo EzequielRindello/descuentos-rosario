@@ -24,9 +24,11 @@ Documentos:
 
 Hecho: los scrapers de las tres cadenas andan y el sitio estático se genera completo (HTML con las ofertas, SEO, PWA instalable y offline, búsqueda y guardados). Probado en local con Chrome. Última corrida (10/11/2026): Carrefour 1.643 ofertas, Coto 4.766 (solo súper), DAR 280.
 
-Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers, deploy manual con `wrangler`). Los secrets de Cloudflare ya están cargados en GitHub y el workflow diario está activo, pero **todavía no corrió nunca**: la primera corrida automática es el **12/11/2026 a las 07:00** (hora de Argentina).
+Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers). Los secrets de Cloudflare están cargados en GitHub y el workflow diario está activo.
 
-**Próximo paso:** revisar esa primera corrida (ver "Cómo revisar la corrida diaria" más abajo). Es lo único sin probar del MVP: puede que Coto o DAR bloqueen las IPs de GitHub Actions.
+Primera corrida en GitHub (a mano, 11/11/2026, run `43022603196`): las tres cadenas respondieron desde Actions (no hay bloqueo por IP) y el deploy anduvo. Falló en dos cosas: el control de caídas frenó a Coto (que había terminado sus promos de verdad) y el push de `data/` fue rechazado porque se pusheó otro commit mientras corría. Las dos están en Decisiones y Problemas conocidos. Los datos se verificaron a mano contra cada sitio (Carrefour 15/15, Coto 25/25 más 12 ofertas terminadas, DAR 7/7).
+
+**Próximo paso:** commitear los arreglos, volver a correr el workflow y revisar la corrida automática del **12/11/2026 a las 07:00** (ver "Cómo revisar la corrida diaria" más abajo).
 
 ## Cómo revisar la corrida diaria
 
@@ -56,14 +58,14 @@ Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y
 | Detector (sanidad + % descuento) | ✅ Básico | `src/detector.rs` |
 | Salida `data/` | ✅ Anda | `src/output.rs`, `data/offers/*.json`, `data/run.json` |
 | Config de cadenas | ✅ | `config/stores.toml` |
-| Tests | ✅ 15 tests con respuestas guardadas | `tests/fixtures/`, `#[cfg(test)]` en cada módulo |
-| Control de caídas | ✅ Si una cadena trae menos de la mitad que ayer, se toma como error y se conserva el archivo anterior | `check_volume` en `src/main.rs` |
+| Tests | ✅ 16 tests con respuestas guardadas | `tests/fixtures/`, `#[cfg(test)]` en cada módulo |
+| Control de caídas | ✅ Si una cadena trae 0 ofertas (y ayer tenía), se toma como error y se conserva el archivo anterior. Las bajas grandes solo quedan en el log | `check_volume` en `src/main.rs` |
 | Sitio estático (HTML, SEO) | ✅ Portada, una sección paginada por cadena, datos abiertos, 404, JSON-LD, sitemap, robots, llms.txt | `src/site.rs`, `templates/`, `config/site.toml` |
 | PWA (manifest, service worker, aviso de instalación) | ✅ Chrome la ofrece para instalar; offline con precache | `web/manifest.webmanifest`, `web/sw.js`, `web/app.js` |
 | Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
 | Íconos | 🟡 Provisorios (un "%" blanco sobre negro) | `web/icons/` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
-| GitHub Actions diario | 🟡 Activo y con secrets; primera corrida el 12/11/2026 | `.github/workflows/daily.yml` |
+| GitHub Actions diario | 🟡 Activo y con secrets; primera corrida (11/11) con scrape y deploy OK, falló el push de `data/` | `.github/workflows/daily.yml` |
 | README para usuarios | 🟡 Con link a la web; faltan capturas y cómo instalarla | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
@@ -119,9 +121,12 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Páginas de cadena de a 100 ofertas (`/coto/`, `/coto/pagina/2/`...), ordenadas por descuento | Páginas livianas en el celu y rastreables por buscadores. |
 | 11/11/2026 | Búsqueda en el navegador sobre `datos/buscar.json` (filas compactas) | Sin backend. 1,4 MB sin comprimir; Cloudflare lo sirve comprimido. |
 | 11/11/2026 | Service worker "network first" con caché de respaldo; la versión del caché cambia en cada build | Los precios cambian todos los días: primero la red, y si no hay señal, lo último guardado. |
-| 11/11/2026 | Control de caídas en el binario: menos de la mitad de ofertas que el día anterior = error | Un rediseño suele verse como "pocas ofertas", no como un error. Mejor mostrar datos de ayer que una cadena vacía. |
+| 11/11/2026 | Control de caídas en el binario: menos de la mitad de ofertas que el día anterior = error (reemplazada el mismo día: ahora solo 0 ofertas es error, ver más abajo) | Un rediseño suele verse como "pocas ofertas", no como un error. Mejor mostrar datos de ayer que una cadena vacía. |
 | 11/11/2026 | Si alguna cadena falla, el workflow abre un issue en GitHub | Enterarse sin mirar los logs. |
 | 11/11/2026 | URL pública: el subdominio `workers.dev` de la cuenta, por ahora | Gratis e inmediato. Un dominio propio queda para más adelante. |
+| 11/11/2026 | Control de caídas: solo es error si una cadena trae 0 ofertas; antes lo era traer menos de la mitad que ayer | Las ofertas cambian mucho de un día a otro: el 11/11 Coto terminó sus promos y pasó de 4.766 a 1.114 ofertas reales (verificado a mano), y la regla vieja dejó en la web ofertas que ya no existían. |
+| 11/11/2026 | Coto: si `precioLista` no es mayor que el precio de oferta, el precio regular sale de `textoPrecioRegular` ("Precio Contado: $X") | En "Otras Ofertas" (verdulería, pescadería, carnicería) `precioLista` es igual al precio de oferta y el regular solo está en ese texto, que es lo que la web de Coto muestra como "Precio regular". Suma 175 ofertas con descuento (11/11/2026). |
+| 11/11/2026 | El workflow no hace `pull --rebase` antes de pushear `data/` | Si se pushea algo mientras corre, que falle y quede registrado; se aprende de eso. Los datos de ese día igual quedan publicados en la web. |
 | 11/11/2026 | El subdominio `workers.dev` lleva el nombre del mantenedor y se deja así por ahora (excepción a "sin datos personales") | Cambiarlo no aporta hasta tener dominio propio; se reemplaza junto con el dominio. |
 
 ## Próximos pasos
@@ -133,8 +138,8 @@ En orden. Cuando cierres una, marcala y poné el commit.
 3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (`c2bbbf9`)
 4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (`c2bbbf9`)
 5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
-6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Falta confirmar la primera corrida automática (12/11/2026): que las tres cadenas respondan desde GitHub, que el deploy y el commit de `data/` funcionen.
-7. [x] **Control de caídas**: menos de la mitad de ofertas que ayer = error; el workflow abre un issue si alguna cadena falla. (`c2bbbf9`)
+6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11: las tres cadenas responden desde GitHub y el deploy anda. Falta una corrida con el commit de `data/` funcionando (issue #1 abierto por el falso positivo de Coto).
+7. [x] **Control de caídas**: 0 ofertas = error (al principio era "menos de la mitad que ayer"); el workflow abre un issue si alguna cadena falla. (`c2bbbf9`, ajustado después)
 8. [ ] **README**: sumar capturas y cómo instalarla en el celu (el link ya está, `de3ec79`).
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console y Bing Webmaster.
 10. [ ] Testeo de punta a punta. Recién después: estilos.
@@ -164,6 +169,9 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 ## Problemas conocidos
 
+- Si se pushea a `main` mientras corre el workflow, el commit de `data/` del bot es rechazado (pasó el 11/11/2026). La web queda con los datos nuevos, pero el repo no; al día siguiente se compara contra el archivo viejo. No pushear entre las 07:00 y las 07:45, o no disparar el workflow a mano mientras se trabaja.
+- Coto: unas 40 ofertas de "Otras Ofertas" no traen precio regular (`"Precio Contado:"` vacío) y se publican sin descuento.
+
 - El service worker precachea `datos/buscar.json` (1,4 MB sin comprimir) al instalarse. Si molesta en datos móviles, pasarlo a caché bajo demanda.
 - Una corrida completa tarda ~3,5 minutos, la mayor parte en Carrefour (pausa de 1 s entre requests, 12 categorías).
 - La ventana de Chrome maximizada no se deja achicar con la extensión; para ver ancho de celular se usó un iframe de 390 px.
@@ -174,6 +182,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `712261f` | 11/11/2026 | Docs: `context.md` y `AGENTS.md` alineados con el código; decisión sobre el subdominio. |
 | `de3ec79` | 11/11/2026 | URL pública del sitio en `config/site.toml` y en el README. |
 | `c2bbbf9` | 11/11/2026 | Sitio estático (portada, secciones por cadena, datos abiertos, SEO, `llms.txt`), PWA offline, búsqueda y guardados, filtro de categorías de Coto, control de caídas, `wrangler.jsonc` y workflow diario. |
 | `c65fdc1` | 11/11/2026 | Primer commit: scrapers de Carrefour, Coto y DAR, detector, salida en `data/`, tests, docs, licencia y datos de la primera corrida. |

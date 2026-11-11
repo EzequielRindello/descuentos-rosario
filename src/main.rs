@@ -126,15 +126,18 @@ async fn scrape(args: Args) -> Result<()> {
     Ok(())
 }
 
-/// A site redesign usually shows up as far fewer offers, not as an error. If a chain brings
-/// less than half of what the current file has, treat it as a failure and keep the old file.
+/// Offer counts swing a lot from day to day (a chain can end most of its promos overnight), so
+/// a drop is real data, not an error. Only zero offers after a non-empty day is treated as a
+/// broken scraper (site redesign, blocked request) and keeps the old file. Big drops are logged.
 fn check_volume(data_dir: &std::path::Path, chain: Chain, offers: Vec<Offer>) -> Result<Vec<Offer>> {
-    const MIN_PREVIOUS: usize = 20;
-    if let Some(previous) = output::previous_count(data_dir, chain)
-        && previous >= MIN_PREVIOUS
-        && offers.len() * 2 < previous
-    {
-        bail!("brought {} offers, less than half of the previous {previous}; keeping the previous file", offers.len());
+    let Some(previous) = output::previous_count(data_dir, chain) else {
+        return Ok(offers);
+    };
+    if offers.is_empty() && previous > 0 {
+        bail!("brought no offers (previous file had {previous}); keeping the previous file");
+    }
+    if offers.len() * 2 < previous {
+        tracing::warn!("{}: {} offers, less than half of the previous {previous}", chain.id(), offers.len());
     }
     Ok(offers)
 }

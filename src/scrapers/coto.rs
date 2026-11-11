@@ -181,7 +181,7 @@ fn parse_record(record: &Value, store: &str) -> Option<Offer> {
     let list_price = price_info.get("precioLista").and_then(Value::as_f64).and_then(pesos_to_cents)?;
 
     let discounts: Vec<Value> = serde_json::from_str(attr(attributes, "product.dtoDescuentos").unwrap_or("[]")).ok()?;
-    let (price, promo) = discounts.iter().find_map(|d| {
+    let (price, promo, regular) = discounts.iter().find_map(|d| {
         let amount = d
             .get("precioDesc")
             .and_then(Value::as_str)
@@ -195,8 +195,17 @@ fn parse_record(record: &Value, store: &str) -> Option<Offer> {
             (false, true) => Some(text.to_string()),
             (false, false) => Some(format!("{text} ({condition})")),
         };
-        Some((cents, promo))
+        // "Precio Contado: $1599" is the regular price Coto shows next to the offer. It matches
+        // `precioLista` when that one is set, and is the only source for "Otras Ofertas" (mostly
+        // fresh produce), where `precioLista` equals the offer price.
+        let regular = d
+            .get("textoPrecioRegular")
+            .and_then(Value::as_str)
+            .and_then(parse_plain_amount)
+            .and_then(pesos_to_cents);
+        Some((cents, promo, regular))
     })?;
+    let list_price = Some(list_price).filter(|&list| list > price).or(regular.filter(|&r| r > price));
 
     let url = record
         .pointer("/detailsAction/recordState")
@@ -210,7 +219,7 @@ fn parse_record(record: &Value, store: &str) -> Option<Offer> {
         ean: attr(attributes, "product.eanPrincipal").map(str::to_string).filter(|e| !e.is_empty()),
         name,
         price,
-        list_price: (list_price > price).then_some(list_price),
+        list_price,
         discount_pct: None,
         promo,
         url,
@@ -228,6 +237,30 @@ mod tests {
         assert_eq!(parse_plain_amount("2631.85"), Some(2631.85));
         assert_eq!(parse_plain_amount("$2631.85c/u"), Some(2631.85));
         assert_eq!(parse_plain_amount("$1860.00"), Some(1860.0));
+    }
+
+    #[test]
+    fn uses_regular_price_text_when_list_price_equals_offer() {
+        // Trimmed "Naranja Jugo Xkg" record from 11/11/2026: the site shows $899 with "Precio regular: $2.499".
+        let discounts = r#"[{"textoPrecioRegular":"Precio Contado: $2499","textoDescuento":"","precioDesc":"899.00"}]"#;
+        let record = serde_json::json!({"records": [{"attributes": {
+            "product.repositoryId": ["prod00061005"],
+            "product.displayName": ["Naranja Jugo Xkg"],
+            "sku.dtoPrice": [r#"{"precioLista":899.0}"#],
+            "product.dtoDescuentos": [discounts],
+        }}]});
+        let offer = parse_record(&record, "test").unwrap();
+        assert_eq!(offer.price, 89_900);
+        assert_eq!(offer.list_price, Some(249_900));
+
+        let empty = discounts.replace("$2499", "");
+        let record = serde_json::json!({"records": [{"attributes": {
+            "product.repositoryId": ["prod1"],
+            "product.displayName": ["Ensalada"],
+            "sku.dtoPrice": [r#"{"precioLista":899.0}"#],
+            "product.dtoDescuentos": [empty],
+        }}]});
+        assert_eq!(parse_record(&record, "test").unwrap().list_price, None);
     }
 
     #[test]
