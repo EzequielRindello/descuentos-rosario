@@ -56,6 +56,8 @@ struct ChainView {
     count: usize,
     count_label: String,
     has_list_prices: bool,
+    /// The last scrape of this chain failed: the site shows no offers instead of stale ones.
+    failed: bool,
     top: Vec<OfferView>,
 }
 
@@ -63,11 +65,13 @@ struct ChainData {
     chain: Chain,
     store: String,
     offers: Vec<Offer>,
+    failed: bool,
 }
 
 pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config) -> Result<()> {
-    let updated = read_updated(data_dir);
-    let chains = load_chains(data_dir, stores)?;
+    let report = read_report(data_dir);
+    let updated = updated_label(report.as_ref());
+    let chains = load_chains(data_dir, stores, report.as_ref())?;
     let env = environment()?;
 
     if out_dir.exists() {
@@ -84,10 +88,12 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
             count: c.offers.len(),
             count_label: group_thousands(c.offers.len() as u64),
             has_list_prices: c.offers.iter().any(|o| o.list_price.is_some()),
+            failed: c.failed,
             top: c.offers.iter().take(site.home_per_chain).map(view).collect(),
         })
         .collect();
     let total: usize = chains.iter().map(|c| c.offers.len()).sum();
+    let available: Vec<&str> = chains.iter().filter(|c| !c.failed).map(|c| c.chain.name()).collect();
     let mut sitemap = vec![format!("{}/", site.url), format!("{}/datos/", site.url)];
 
     // Home.
@@ -103,6 +109,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "canonical": format!("{}/", site.url),
         "json_ld": json_ld(&home_ld),
         "total_label": group_thousands(total as u64),
+        "available_label": join_names(&available),
     })))?;
 
     // One paginated section per chain.
@@ -117,13 +124,17 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
             sitemap.push(url.clone());
             let page_suffix = if page > 1 { format!(" (página {page})") } else { String::new() };
             let title = format!("Ofertas de {} en Rosario hoy{} | {}", data.chain.name(), page_suffix, site.name);
-            let description = format!(
-                "{} ofertas de {} en Rosario ({}), actualizadas el {}. Precio de oferta, precio anterior y descuento.",
-                chain_view.count_label,
-                data.chain.name(),
-                data.store,
-                updated
-            );
+            let description = if data.failed {
+                format!("Hoy no pudimos leer las ofertas de {} en Rosario ({}). Actualizado el {}.", data.chain.name(), data.store, updated)
+            } else {
+                format!(
+                    "{} ofertas de {} en Rosario ({}), actualizadas el {}. Precio de oferta, precio anterior y descuento.",
+                    chain_view.count_label,
+                    data.chain.name(),
+                    data.store,
+                    updated
+                )
+            };
             let ld = item_list(&slice, &format!("Ofertas de {} en Rosario", data.chain.name()));
             let prev_url = (page > 1).then(|| format!("{}{}", site.url, page_path(&base, page - 1)));
             let next_url = (page < pages).then(|| format!("{}{}", site.url, page_path(&base, page + 1)));
@@ -169,6 +180,7 @@ fn environment() -> Result<Environment<'static>> {
     let mut env = Environment::new();
     env.add_template("base.html", include_str!("../templates/base.html"))?;
     env.add_template("offers.html", include_str!("../templates/offers.html"))?;
+    env.add_template("failed.html", include_str!("../templates/failed.html"))?;
     env.add_template("index.html", include_str!("../templates/index.html"))?;
     env.add_template("chain.html", include_str!("../templates/chain.html"))?;
     env.add_template("datos.html", include_str!("../templates/datos.html"))?;
@@ -197,33 +209,53 @@ fn page_path(base: &str, page: usize) -> String {
     if page == 1 { base.to_string() } else { format!("{base}pagina/{page}/") }
 }
 
+fn read_report(data_dir: &Path) -> Option<RunReport> {
+    let text = fs::read_to_string(data_dir.join("run.json")).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
 /// Run date as shown to people, e.g. "11/11/2026 06:03". Falls back to "hoy".
-fn read_updated(data_dir: &Path) -> String {
-    fs::read_to_string(data_dir.join("run.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<RunReport>(&text).ok())
+fn updated_label(report: Option<&RunReport>) -> String {
+    report
         .and_then(|report| DateTime::parse_from_rfc3339(&report.generated_at).ok())
         .map(|date| date.format("%d/%m/%Y %H:%M").to_string())
         .unwrap_or_else(|| "hoy".to_string())
 }
 
-fn load_chains(data_dir: &Path, stores: &Config) -> Result<Vec<ChainData>> {
+/// "Carrefour", "Carrefour y DAR", "Carrefour, Coto y DAR".
+fn join_names(names: &[&str]) -> String {
+    match names {
+        [] => String::new(),
+        [only] => only.to_string(),
+        [rest @ .., last] => format!("{} y {last}", rest.join(", ")),
+    }
+}
+
+/// Loads each chain's data file. A chain whose last scrape failed (per `run.json`) gets no
+/// offers: `data/` keeps yesterday's file, but the site only shows today's offers.
+fn load_chains(data_dir: &Path, stores: &Config, report: Option<&RunReport>) -> Result<Vec<ChainData>> {
     let mut chains = Vec::new();
     for chain in Chain::ALL {
+        let failed = report.and_then(|r| r.chains.get(chain.id())).is_some_and(|c| !c.ok);
         let path = data_dir.join("offers").join(format!("{}.json", chain.id()));
-        if !path.exists() {
+        if !failed && !path.exists() {
             tracing::warn!("{} has no data file, skipping", chain.id());
             continue;
         }
-        let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-        let mut offers: Vec<Offer> = serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        let mut offers: Vec<Offer> = if failed {
+            tracing::warn!("{}: last scrape failed, publishing it with no offers", chain.id());
+            Vec::new()
+        } else {
+            let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+            serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?
+        };
         offers.sort_by(rank);
         let store = match chain {
             Chain::Carrefour => stores.carrefour.store.clone(),
             Chain::Coto => stores.coto.store.clone(),
             Chain::Dar => stores.dar.store.clone(),
         };
-        chains.push(ChainData { chain, store, offers });
+        chains.push(ChainData { chain, store, offers, failed });
     }
     Ok(chains)
 }
@@ -401,7 +433,8 @@ fn write_seo_files(out_dir: &Path, site: &SiteConfig, chains: &[ChainView], site
         site.name, site.description
     );
     for c in chains {
-        llms.push_str(&format!("- [Ofertas de {} en Rosario]({}/{}/): {} ofertas hoy. {}.\n", c.name, site.url, c.id, c.count_label, c.store));
+        let count = if c.failed { "hoy sin datos (no se pudo leer la web de la cadena)".to_string() } else { format!("{} ofertas hoy", c.count_label) };
+        llms.push_str(&format!("- [Ofertas de {} en Rosario]({}/{}/): {count}. {}.\n", c.name, site.url, c.id, c.store));
     }
     llms.push_str(&format!(
         "\n## Datos abiertos\n\n- [Todas las ofertas del día en CSV]({url}/datos/hoy.csv)\n",
@@ -436,5 +469,51 @@ mod tests {
     #[test]
     fn templates_parse() {
         environment().unwrap();
+    }
+
+    #[test]
+    fn joins_chain_names() {
+        assert_eq!(join_names(&[]), "");
+        assert_eq!(join_names(&["Coto"]), "Coto");
+        assert_eq!(join_names(&["Carrefour", "DAR"]), "Carrefour y DAR");
+        assert_eq!(join_names(&["Carrefour", "Coto", "DAR"]), "Carrefour, Coto y DAR");
+    }
+
+    #[test]
+    fn failed_chain_is_published_without_stale_offers() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let offer = |chain: &str, name: &str| {
+            format!(
+                r#"[{{"chain":"{chain}","store":"x","id":"1","ean":null,"name":"{name}","price":100,"list_price":200,"discount_pct":50,"promo":null,"url":null,"image":null,"source":"web"}}]"#
+            )
+        };
+        fs::write(data.join("offers/carrefour.json"), offer("carrefour", "Yerba de hoy")).unwrap();
+        fs::write(data.join("offers/coto.json"), offer("coto", "Fideos de ayer")).unwrap();
+        fs::write(
+            data.join("run.json"),
+            r#"{"generated_at":"2026-11-12T07:05:00-03:00","chains":{
+                "carrefour":{"ok":true,"offers":1,"seconds":1,"error":null},
+                "coto":{"ok":false,"offers":0,"seconds":1,"error":"timeout"}}}"#,
+        )
+        .unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let home = fs::read_to_string(out.join("index.html")).unwrap();
+        let coto = fs::read_to_string(out.join("coto/index.html")).unwrap();
+        let search = fs::read_to_string(out.join("datos/buscar.json")).unwrap();
+        let csv = fs::read_to_string(out.join("datos/hoy.csv")).unwrap();
+        assert!(home.contains("Yerba de hoy"));
+        assert!(home.contains("Hoy no pudimos leer las ofertas de Coto"));
+        assert!(coto.contains("Hoy no pudimos leer las ofertas de Coto"));
+        for text in [&home, &coto, &search, &csv] {
+            assert!(!text.contains("Fideos de ayer"));
+        }
+        assert_eq!(fs::read_to_string(out.join("datos/coto.json")).unwrap(), "[]");
+        fs::remove_dir_all(&root).unwrap();
     }
 }

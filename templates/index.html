@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block main %}
 <h1>Ofertas de supermercados en Rosario</h1>
-<p>Actualizado el {{ updated }}. Hoy hay <strong>{{ total_label }}</strong> ofertas de {% for c in chains %}{{ c.name }}{% if not loop.last %}{% if loop.revindex == 2 %} y {% else %}, {% endif %}{% endif %}{% endfor %}.</p>
+<p>Actualizado el {{ updated }}. {% if available_label %}Hoy hay <strong>{{ total_label }}</strong> ofertas de {{ available_label }}.{% else %}Hoy no pudimos leer las ofertas de ninguna cadena.{% endif %}</p>
 
 <section id="buscar">
 <h2>Buscar un producto</h2>
@@ -22,9 +22,11 @@
 {% for c in chains %}
 <section>
 <h2>Mejores ofertas de {{ c.name }}</h2>
-<p>{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
+{% if c.failed %}{% include "failed.html" %}
+{% else %}<p>{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
 {% with offers = c.top, start = none %}{% include "offers.html" %}{% endwith %}
 <p><a href="/{{ c.id }}/">Ver las {{ c.count_label }} ofertas de {{ c.name }}</a></p>
+{% endif %}
 </section>
 {% endfor %}
 

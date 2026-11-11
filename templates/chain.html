@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block main %}
 <h1>Ofertas de {{ chain.name }} en Rosario</h1>
-<p>{{ chain.store }}. {{ chain.count_label }} ofertas, actualizadas el {{ updated }}.{% if pages > 1 %} Página {{ page }} de {{ pages }}.{% endif %}</p>
-{% if not chain.has_list_prices %}<p>{{ chain.name }} no publica el precio anterior de sus ofertas, así que acá solo se muestra el precio final.</p>
+{% if chain.failed %}{% with c = chain %}{% include "failed.html" %}{% endwith %}
+{% else %}<p>{{ chain.store }}. {{ chain.count_label }} ofertas, actualizadas el {{ updated }}.{% if pages > 1 %} Página {{ page }} de {{ pages }}.{% endif %}</p>
+{% endif %}
+{% if not chain.failed and not chain.has_list_prices %}<p>{{ chain.name }} no publica el precio anterior de sus ofertas, así que acá solo se muestra el precio final.</p>
 {% endif %}
 {% include "offers.html" %}
 

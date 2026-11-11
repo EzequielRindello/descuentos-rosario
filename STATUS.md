@@ -28,7 +28,9 @@ Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.de
 
 Primera corrida en GitHub (a mano, 11/11/2026, run `43022603196`): las tres cadenas respondieron desde Actions (no hay bloqueo por IP) y el deploy anduvo. Falló en dos cosas: el control de caídas frenó a Coto (que había terminado sus promos de verdad) y el push de `data/` fue rechazado porque se pusheó otro commit mientras corría. Las dos están en Decisiones y Problemas conocidos. Los datos se verificaron a mano contra cada sitio (Carrefour 15/15, Coto 25/25 más 12 ofertas terminadas, DAR 7/7).
 
-**Próximo paso:** commitear los arreglos, volver a correr el workflow y revisar la corrida automática del **12/11/2026 a las 07:00** (ver "Cómo revisar la corrida diaria" más abajo).
+Segunda corrida manual (11/11/2026, run `43030708828`, con `1e5ae5f`): todo OK. Carrefour 1.616, Coto 1.114, DAR 287; deploy y commit de `data/` (`c287d33`) funcionaron. Issue #1 cerrado.
+
+**Próximo paso:** revisar la primera corrida por cron, el **12/11/2026 a las 07:00** (ver "Cómo revisar la corrida diaria" más abajo). Es lo único del workflow que falta ver: que el `schedule` dispare solo.
 
 ## Cómo revisar la corrida diaria
 
@@ -58,15 +60,15 @@ Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y
 | Detector (sanidad + % descuento) | ✅ Básico | `src/detector.rs` |
 | Salida `data/` | ✅ Anda | `src/output.rs`, `data/offers/*.json`, `data/run.json` |
 | Config de cadenas | ✅ | `config/stores.toml` |
-| Tests | ✅ 16 tests con respuestas guardadas | `tests/fixtures/`, `#[cfg(test)]` en cada módulo |
+| Tests | ✅ 18 tests con respuestas guardadas | `tests/fixtures/`, `#[cfg(test)]` en cada módulo |
 | Control de caídas | ✅ Si una cadena trae 0 ofertas (y ayer tenía), se toma como error y se conserva el archivo anterior. Las bajas grandes solo quedan en el log | `check_volume` en `src/main.rs` |
 | Sitio estático (HTML, SEO) | ✅ Portada, una sección paginada por cadena, datos abiertos, 404, JSON-LD, sitemap, robots, llms.txt | `src/site.rs`, `templates/`, `config/site.toml` |
 | PWA (manifest, service worker, aviso de instalación) | ✅ Chrome la ofrece para instalar; offline con precache | `web/manifest.webmanifest`, `web/sw.js`, `web/app.js` |
 | Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
 | Íconos | 🟡 Provisorios (un "%" blanco sobre negro) | `web/icons/` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
-| GitHub Actions diario | 🟡 Activo y con secrets; primera corrida (11/11) con scrape y deploy OK, falló el push de `data/` | `.github/workflows/daily.yml` |
-| README para usuarios | 🟡 Con link a la web; faltan capturas y cómo instalarla | `README.md` |
+| GitHub Actions diario | 🟡 Corrida manual completa OK (11/11); falta ver que el cron dispare solo (12/11) | `.github/workflows/daily.yml` |
+| README para usuarios | ✅ Link, cómo instalarla y datos abiertos. Las capturas van después de los estilos | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
 
@@ -126,6 +128,10 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | URL pública: el subdominio `workers.dev` de la cuenta, por ahora | Gratis e inmediato. Un dominio propio queda para más adelante. |
 | 11/11/2026 | Control de caídas: solo es error si una cadena trae 0 ofertas; antes lo era traer menos de la mitad que ayer | Las ofertas cambian mucho de un día a otro: el 11/11 Coto terminó sus promos y pasó de 4.766 a 1.114 ofertas reales (verificado a mano), y la regla vieja dejó en la web ofertas que ya no existían. |
 | 11/11/2026 | Coto: si `precioLista` no es mayor que el precio de oferta, el precio regular sale de `textoPrecioRegular` ("Precio Contado: $X") | En "Otras Ofertas" (verdulería, pescadería, carnicería) `precioLista` es igual al precio de oferta y el regular solo está en ese texto, que es lo que la web de Coto muestra como "Precio regular". Suma 175 ofertas con descuento (11/11/2026). |
+| 11/11/2026 | Si una cadena falla, el sitio la muestra vacía con un aviso ("Hoy no pudimos leer las ofertas de ..."), también en búsqueda y datos abiertos. `data/` igual conserva su último archivo bueno | La web muestra las ofertas del día, sean pocas o muchas; las de ayer pueden ya no valer. `data/` guarda el archivo para comparar y como historial. Lo decide `run.json` (`ok: false`). |
+| 11/11/2026 | Si fallan todas las cadenas, el workflow igual genera y publica el sitio (y commitea `run.json`); la corrida queda en rojo | Antes cortaba en el scrape y la web se quedaba entera con las ofertas de ayer. |
+| 11/11/2026 | `/datos/*` con `max-age=0, must-revalidate` en vez de una hora de caché | Con una hora, la búsqueda podía mostrar ofertas de ayer después de la actualización. Con ETag, revalidar cuesta un 304. |
+| 11/11/2026 | Capturas del README recién después de los estilos | Sin estilos no muestran nada útil. |
 | 11/11/2026 | El workflow no hace `pull --rebase` antes de pushear `data/` | Si se pushea algo mientras corre, que falle y quede registrado; se aprende de eso. Los datos de ese día igual quedan publicados en la web. |
 | 11/11/2026 | El subdominio `workers.dev` lleva el nombre del mantenedor y se deja así por ahora (excepción a "sin datos personales") | Cambiarlo no aporta hasta tener dominio propio; se reemplaza junto con el dominio. |
 
@@ -138,9 +144,9 @@ En orden. Cuando cierres una, marcala y poné el commit.
 3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (`c2bbbf9`)
 4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (`c2bbbf9`)
 5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
-6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11: las tres cadenas responden desde GitHub y el deploy anda. Falta una corrida con el commit de `data/` funcionando (issue #1 abierto por el falso positivo de Coto).
+6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11 completa: las tres cadenas responden desde GitHub, deploy y commit de `data/` andan (`c287d33`). Falta confirmar que el cron dispare solo (12/11/2026, 07:00).
 7. [x] **Control de caídas**: 0 ofertas = error (al principio era "menos de la mitad que ayer"); el workflow abre un issue si alguna cadena falla. (`c2bbbf9`, ajustado después)
-8. [ ] **README**: sumar capturas y cómo instalarla en el celu (el link ya está, `de3ec79`).
+8. [ ] **README**: cómo instalarla en el celu y datos abiertos, hecho (commit pendiente). Faltan las capturas, que van después de los estilos.
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console y Bing Webmaster.
 10. [ ] Testeo de punta a punta. Recién después: estilos.
 
@@ -182,6 +188,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `6fa4438` | 11/11/2026 | STATUS con el hash de `1e5ae5f`. |
 | `1e5ae5f` | 11/11/2026 | Coto: precio regular desde "Precio Contado" en Otras Ofertas. Control de caídas: solo 0 ofertas es error. |
 | `712261f` | 11/11/2026 | Docs: `context.md` y `AGENTS.md` alineados con el código; decisión sobre el subdominio. |
 | `de3ec79` | 11/11/2026 | URL pública del sitio en `config/site.toml` y en el README. |

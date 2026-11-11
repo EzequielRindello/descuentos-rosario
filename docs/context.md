@@ -23,7 +23,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 - `data/offers/<cadena>.json`: un array con un objeto `Offer` por línea, ordenado por `id`. Así el commit diario solo muestra cambios reales de precio.
 - Los precios van en **centavos** (`price`, `list_price`), enteros, para evitar errores de redondeo.
 - Campos de `Offer`: `chain`, `store`, `id` (id propio de la cadena), `ean`, `name`, `price`, `list_price`, `discount_pct`, `promo`, `url`, `image`, `source` (`web`).
-- `data/run.json`: resumen de la última corrida por cadena (`ok`, `offers`, `seconds`, `error`). Si una cadena falla, su archivo de ofertas del día anterior queda como está.
+- `data/run.json`: resumen de la última corrida por cadena (`ok`, `offers`, `seconds`, `error`). Si una cadena falla (error o 0 ofertas), su archivo de ofertas del día anterior queda como está en `data/`, pero el sitio la publica vacía con un aviso (ver abajo).
 - El detector descarta `list_price` menores o iguales al precio, o más de 5 veces mayores (caso Jumbo), y calcula `discount_pct`.
 
 ## Sitio generado (`dist/`)
@@ -39,8 +39,10 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url]`. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
-| `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto. |
+| `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto y `max-age=0, must-revalidate` (el HTML ya sale así por defecto). |
 | `/404.html` | Página de error (Workers la usa con `not_found_handling: "404-page"`). |
+
+Si `run.json` marca una cadena con `ok: false`, el build la publica sin ofertas: su sección y la portada dicen "Hoy no pudimos leer las ofertas de ...", y queda fuera de `buscar.json` y `hoy.csv` (`datos/<cadena>.json` sale como `[]`). Plantilla del aviso: `templates/failed.html`.
 
 Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con `include_str!`/`include_bytes!`: hay que recompilar para ver cambios. La clave de cada oferta es `<cadena>:<id>`; los guardados se guardan en `localStorage` con esa clave.
 

@@ -6,7 +6,7 @@
 <h2>Archivos</h2>
 <ul>
 <li><a href="/datos/hoy.csv">hoy.csv</a>: todas las cadenas en un solo archivo CSV.</li>
-{% for c in chains %}<li><a href="/datos/{{ c.id }}.json">{{ c.id }}.json</a>: {{ c.count_label }} ofertas de {{ c.name }} ({{ c.store }}).</li>
+{% for c in chains %}<li><a href="/datos/{{ c.id }}.json">{{ c.id }}.json</a>: {% if c.failed %}hoy vacío, no pudimos leer la web de {{ c.name }}{% else %}{{ c.count_label }} ofertas de {{ c.name }}{% endif %} ({{ c.store }}).</li>
 {% endfor %}</ul>
 
 <h2>Campos</h2>
