@@ -161,48 +161,65 @@ async function search(query, results) {
 
 // ---------- Saved offers (only on this device) ----------
 
+// Stored as [{ key, name }]. The name is kept so an offer that is gone today can still be listed
+// (and discarded). Older versions stored plain keys; those are read with no name.
 function readSaved() {
   try {
-    return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]');
+    const items = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]');
+    return items.map((item) => (typeof item === 'string' ? { key: item, name: null } : item)).filter((item) => item && item.key);
   } catch {
     return [];
   }
 }
 
-function writeSaved(keys) {
+function writeSaved(items) {
   try {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(keys));
+    localStorage.setItem(SAVED_KEY, JSON.stringify(items));
   } catch {
     // Private mode or storage blocked: saving just doesn't persist.
   }
+}
+
+function isSaved(key) {
+  return readSaved().some((item) => item.key === key);
 }
 
 function saveButton(key) {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.fav = key;
-  syncButton(button, readSaved().includes(key));
+  syncButton(button, isSaved(key));
   return button;
 }
 
 function syncButton(button, saved) {
   button.hidden = false;
-  button.setAttribute('aria-pressed', String(saved));
-  button.textContent = saved ? 'Guardada' : 'Guardar';
+  button.textContent = saved ? 'Descartar' : 'Guardar';
+}
+
+const CHAIN_NAMES = { carrefour: 'Carrefour', coto: 'Coto', dar: 'DAR' };
+
+function chainOf(key) {
+  const id = key.split(':')[0];
+  return CHAIN_NAMES[id] || id;
 }
 
 function setupSaved() {
-  const saved = readSaved();
-  document.querySelectorAll('button[data-fav]').forEach((button) => syncButton(button, saved.includes(button.dataset.fav)));
+  document.querySelectorAll('button[data-fav]').forEach((button) => syncButton(button, isSaved(button.dataset.fav)));
 
   document.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-fav]');
     if (!button) return;
     const key = button.dataset.fav;
-    const keys = readSaved();
-    const isSaved = keys.includes(key);
-    writeSaved(isSaved ? keys.filter((k) => k !== key) : [...keys, key]);
-    document.querySelectorAll('button[data-fav="' + CSS.escape(key) + '"]').forEach((b) => syncButton(b, !isSaved));
+    const items = readSaved();
+    const saved = items.some((item) => item.key === key);
+    if (saved) {
+      writeSaved(items.filter((item) => item.key !== key));
+    } else {
+      const title = button.closest('li') && button.closest('li').querySelector('b');
+      writeSaved([...items, { key, name: title ? title.textContent : null }]);
+    }
+    document.querySelectorAll('button[data-fav="' + CSS.escape(key) + '"]').forEach((b) => syncButton(b, !saved));
     renderSaved();
   });
   renderSaved();
@@ -212,9 +229,9 @@ async function renderSaved() {
   const section = $('#guardados');
   const container = $('#guardados-lista');
   if (!section || !container) return;
-  const keys = readSaved();
-  section.hidden = keys.length === 0;
-  if (!keys.length) return;
+  const items = readSaved();
+  section.hidden = items.length === 0;
+  if (!items.length) return;
   let index;
   try {
     index = await loadIndex();
@@ -223,14 +240,24 @@ async function renderSaved() {
     return;
   }
   const byKey = new Map(index.map((entry) => [entry.row[0], entry.row]));
-  const rows = keys.map((key) => byKey.get(key)).filter(Boolean);
-  const missing = keys.length - rows.length;
+  // Fill in names for items saved by older versions, while their offer is still listed.
+  if (items.some((item) => !item.name && byKey.has(item.key))) {
+    writeSaved(items.map((item) => (!item.name && byKey.has(item.key) ? { ...item, name: byKey.get(item.key)[2] } : item)));
+  }
+  const rows = items.map((item) => byKey.get(item.key)).filter(Boolean);
+  const gone = items.filter((item) => !byKey.has(item.key));
   container.replaceChildren();
   if (rows.length) container.append(renderList(rows));
-  if (missing) {
+  if (gone.length) {
     const note = document.createElement('p');
-    note.textContent = missing === 1 ? '1 guardada ya no está en oferta hoy.' : missing + ' guardadas ya no están en oferta hoy.';
-    container.append(note);
+    note.textContent = gone.length === 1 ? 'Hoy no está en oferta (si vuelve, aparece de nuevo arriba):' : 'Hoy no están en oferta (si vuelven, aparecen de nuevo arriba):';
+    const list = document.createElement('ul');
+    for (const item of gone) {
+      const entry = document.createElement('li');
+      entry.append((item.name || 'Un producto guardado') + ' (' + chainOf(item.key) + ') ', saveButton(item.key));
+      list.append(entry);
+    }
+    container.append(note, list);
   }
 }
 

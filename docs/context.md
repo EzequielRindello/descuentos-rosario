@@ -45,7 +45,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 
 Si `run.json` marca una cadena con `ok: false`, el build la publica sin ofertas: su sección y la portada dicen "Hoy no pudimos leer las ofertas de ...", y queda fuera de `buscar.json` y `hoy.csv` (`datos/<cadena>.json` sale como `[]`). Plantilla del aviso: `templates/failed.html`.
 
-Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con `include_str!`/`include_bytes!`: hay que recompilar para ver cambios. La clave de cada oferta es `<cadena>:<id>`; los guardados se guardan en `localStorage` con esa clave.
+Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con `include_str!`/`include_bytes!`: hay que recompilar para ver cambios. La clave de cada oferta es `<cadena>:<id>`. Los guardados van en `localStorage` (`ofertas-rosario:guardados`) como `[{ "key": "<cadena>:<id>", "name": "..." }]`; versiones viejas guardaban solo las claves, y `app.js` las sigue leyendo.
 
 ## SEO y descubrimiento por IAs
 
