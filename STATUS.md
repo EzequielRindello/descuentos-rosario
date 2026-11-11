@@ -24,9 +24,27 @@ Documentos:
 
 Hecho: los scrapers de las tres cadenas andan y el sitio estático se genera completo (HTML con las ofertas, SEO, PWA instalable y offline, búsqueda y guardados). Probado en local con Chrome. Última corrida (10/11/2026): Carrefour 1.643 ofertas, Coto 4.766 (solo súper), DAR 280.
 
-Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers). Falta: cargar los secrets de Cloudflare en el repo y probar el workflow de GitHub Actions.
+Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers, deploy manual con `wrangler`). Los secrets de Cloudflare ya están cargados en GitHub y el workflow diario está activo, pero **todavía no corrió nunca**: la primera corrida automática es el **12/11/2026 a las 07:00** (hora de Argentina).
 
-**Próximo paso:** el mantenedor carga `CLOUDFLARE_API_TOKEN` (permiso "Workers Scripts · Edit") y `CLOUDFLARE_ACCOUNT_ID` en GitHub, y se corre el workflow a mano.
+**Próximo paso:** revisar esa primera corrida (ver "Cómo revisar la corrida diaria" más abajo). Es lo único sin probar del MVP: puede que Coto o DAR bloqueen las IPs de GitHub Actions.
+
+## Cómo revisar la corrida diaria
+
+El workflow (`.github/workflows/daily.yml`) corre todos los días a las 07:00 de Argentina (GitHub puede demorarlo 5 a 30 minutos): tests, scrape, build, `wrangler deploy`, commit de `data/` en `main` ("data: ofertas del DD/MM/AAAA") e issue en GitHub si alguna cadena falló.
+
+```bash
+gh run list --workflow daily.yml --limit 5     # ¿corrió? ¿terminó bien?
+gh run view <id> --log-failed                  # si falló, qué paso falló
+gh issue list                                  # issues "Falló el scrape del ..." que abre el workflow
+git pull                                       # traer el commit de data/ que hizo el bot
+cat data/run.json                              # ofertas y error por cadena de la última corrida
+```
+
+También se ve en la web: el pie de cada página dice "Ofertas actualizadas el ...".
+
+Si una cadena falla solo desde GitHub (anda en local y no en Actions), lo más probable es un bloqueo por IP. No disfrazar el User-Agent ni saltear protecciones (ver reglas en `AGENTS.md`): anotarlo acá y discutir alternativas con el mantenedor.
+
+Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y commitea de verdad; pedir OK al mantenedor antes).
 
 ## Estado por componente
 
@@ -45,8 +63,8 @@ Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.de
 | Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
 | Íconos | 🟡 Provisorios (un "%" blanco sobre negro) | `web/icons/` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
-| GitHub Actions diario | 🟡 Escrito, sin probar (faltan los secrets) | `.github/workflows/daily.yml` |
-| README para usuarios | 🟡 Versión mínima, falta el link a la web | `README.md` |
+| GitHub Actions diario | 🟡 Activo y con secrets; primera corrida el 12/11/2026 | `.github/workflows/daily.yml` |
+| README para usuarios | 🟡 Con link a la web; faltan capturas y cómo instalarla | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
 
@@ -60,8 +78,10 @@ cargo run --release -- scrape                  # todas las cadenas, escribe data
 cargo run --release -- scrape --only dar,coto  # solo algunas
 cargo run --release -- build                   # genera el sitio en dist/ a partir de data/
 python -m http.server 8787 --directory dist    # verlo en http://127.0.0.1:8787 (sin _headers)
-npx wrangler@4 deploy                          # publicar dist/ en Cloudflare
+npx wrangler@4 deploy                          # publicar dist/ en Cloudflare (requiere `npx wrangler@4 login`)
 ```
+
+El bot de GitHub Actions commitea `data/` en `main` todos los días: hacé `git pull` antes de trabajar.
 
 Cerrá el servidor local antes de volver a hacer `build`: en Windows deja `dist/` tomado y el build falla con "Permission denied".
 
@@ -111,10 +131,10 @@ En orden. Cuando cierres una, marcala y poné el commit.
 2. [x] **SEO técnico**: `sitemap.xml`, `robots.txt` abierto a buscadores y bots de IA, `llms.txt`. (`c2bbbf9`)
 3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (`c2bbbf9`)
 4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (`c2bbbf9`)
-5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (commit pendiente)
-6. [ ] **GitHub Actions**: cargar los secrets en el repo (los de otros repos no sirven: los secrets son por repo y no se pueden leer). `CLOUDFLARE_API_TOKEN` tiene que tener permiso "Workers Scripts · Edit" (plantilla "Edit Cloudflare Workers"). Después correrlo a mano (`workflow_dispatch`) y verificar que las tres cadenas respondan desde las IPs de Azure.
+5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
+6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Falta confirmar la primera corrida automática (12/11/2026): que las tres cadenas respondan desde GitHub, que el deploy y el commit de `data/` funcionen.
 7. [x] **Control de caídas**: menos de la mitad de ofertas que ayer = error; el workflow abre un issue si alguna cadena falla. (`c2bbbf9`)
-8. [ ] **README**: completar con el link a la web, capturas y cómo instalarla en el celu.
+8. [ ] **README**: sumar capturas y cómo instalarla en el celu (el link ya está, `de3ec79`).
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console y Bing Webmaster.
 10. [ ] Testeo de punta a punta. Recién después: estilos.
 
@@ -130,7 +150,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 ## Pendientes y dudas abiertas
 
-- [ ] Dominio propio (opcional, mejor para SEO). Si se cambia, actualizar `url` en `config/site.toml` y el link del README.
+- [ ] Nombre definitivo y dominio propio (opcional, mejor para SEO). Si se cambia, actualizar `url` en `config/site.toml` y el link del README.
 - [ ] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Opciones: permitir el bot en la regla, o mover los datos a una rama `data`.
 - [ ] Íconos definitivos (van con los estilos, al final).
 - [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
@@ -139,9 +159,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 - [ ] Carrefour: promos 2x1 (`Teasers` viene vacío en Intelligent Search).
 - [ ] DAR: promos bancarias y `Detalle.asp` (sin revisar).
 - [ ] DAR: no tiene precio anterior; su descuento real depende del historial (etapa 2).
-- [ ] Revisar términos de uso de cada sitio antes del deploy público.
-- [ ] Nombre del proyecto y dominio.
-- [ ] Aclarar en el README y en la web que los datos salen de las webs públicas de cada cadena y pueden diferir del precio en góndola.
+- [ ] Revisar términos de uso de cada sitio antes del lanzamiento (la web ya es accesible por URL, pero no está difundida).
 
 ## Problemas conocidos
 
@@ -155,5 +173,6 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `de3ec79` | 11/11/2026 | URL pública del sitio en `config/site.toml` y en el README. |
 | `c2bbbf9` | 11/11/2026 | Sitio estático (portada, secciones por cadena, datos abiertos, SEO, `llms.txt`), PWA offline, búsqueda y guardados, filtro de categorías de Coto, control de caídas, `wrangler.jsonc` y workflow diario. |
 | `c65fdc1` | 11/11/2026 | Primer commit: scrapers de Carrefour, Coto y DAR, detector, salida en `data/`, tests, docs, licencia y datos de la primera corrida. |

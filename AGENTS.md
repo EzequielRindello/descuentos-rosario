@@ -8,5 +8,7 @@ Antes de hacer cualquier cosa, leé `STATUS.md` (estado, decisiones, tareas) y `
 - Todo en español (docs, web, README), menos el código (identificadores y comentarios en inglés).
 - Nada de estilos, fuentes ni colores hasta que se pida explícitamente.
 - Comandos para compilar, testear y scrapear: sección "Cómo correrlo" de `STATUS.md`.
+- Un bot commitea `data/` en `main` todos los días: hacé `git pull` antes de empezar. No edites `data/` a mano.
+- Publicar (`wrangler deploy`), disparar el workflow o tocar secrets de GitHub/Cloudflare: pedir OK antes.
 - Cortesía con los sitios: User-Agent identificable, respetar `robots.txt`, nunca hacerse pasar por un navegador ni usar keys sacadas de las páginas.
 - Sin rutas locales ni datos personales en el repo: es público.
