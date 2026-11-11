@@ -182,6 +182,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `1e5ae5f` | 11/11/2026 | Coto: precio regular desde "Precio Contado" en Otras Ofertas. Control de caídas: solo 0 ofertas es error. |
 | `712261f` | 11/11/2026 | Docs: `context.md` y `AGENTS.md` alineados con el código; decisión sobre el subdominio. |
 | `de3ec79` | 11/11/2026 | URL pública del sitio en `config/site.toml` y en el README. |
 | `c2bbbf9` | 11/11/2026 | Sitio estático (portada, secciones por cadena, datos abiertos, SEO, `llms.txt`), PWA offline, búsqueda y guardados, filtro de categorías de Coto, control de caídas, `wrangler.jsonc` y workflow diario. |
