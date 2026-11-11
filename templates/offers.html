@@ -1,12 +1,13 @@
-<ol class="ofertas"{% if start %} start="{{ start }}"{% endif %}>
-{% for o in offers %}<li data-id="{{ o.key }}">
+{% import "icons.html" as icon %}<ol class="cards"{% if start %} start="{{ start }}"{% endif %}>
+{% for o in offers %}<li class="card" data-id="{{ o.key }}">
 {% if o.image %}<img src="{{ o.image }}" alt="" width="80" height="80" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-{% endif %}<b>{{ o.name }}</b>
-· {{ o.chain_name }}
-· <strong>{{ o.price }}</strong>
-{% if o.list_price %}· antes <s>{{ o.list_price }}</s> · <em>-{{ o.discount_pct }}%</em>
-{% endif %}{% if o.promo %}· {{ o.promo }}
-{% endif %}{% if o.url %}· <a href="{{ o.url }}" rel="nofollow noopener" target="_blank">ver en {{ o.chain_name }}</a>
-{% endif %}<button type="button" data-fav="{{ o.key }}" hidden>Guardar</button>
+{% endif %}<div class="card-body">
+<b class="card-name">{{ o.name }}</b>
+<p class="card-chain">{{ o.chain_name }}</p>
+<p class="card-price"><strong class="price">{{ o.price }}</strong>{% if o.list_price %} <span class="before">antes <s>{{ o.list_price }}</s></span>{% endif %}</p>
+{% if o.list_price or o.promo %}<p class="card-tags">{% if o.list_price %}<em class="badge{% if o.discount_pct >= 40 %} badge-big{% endif %}">-{{ o.discount_pct }}%</em>{% endif %}{% if o.promo %} <span class="chip">{{ o.promo }}</span>{% endif %}</p>
+{% endif %}<p class="card-actions">{% if o.url %}<a class="card-link" href="{{ o.url }}" rel="nofollow noopener" target="_blank">ver en {{ o.chain_name }} {{ icon.external() }}</a>{% endif %}
+<button type="button" class="btn-save" data-fav="{{ o.key }}" hidden>Guardar</button></p>
+</div>
 </li>
 {% endfor %}</ol>

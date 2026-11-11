@@ -41,6 +41,8 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
+| `/styles.css`, `/fonts/inter-latin-wght.woff2`, `/fonts/OFL.txt` | Estilos (paleta "Celeste Rosario" en variables CSS, modo oscuro con `prefers-color-scheme`) e Inter alojada en el sitio con su licencia. Precacheados para offline. Sin estilos inline: la CSP solo permite este archivo. Las tarjetas de `templates/offers.html` y las que arma `renderList` en `app.js` usan las mismas clases: si se cambia una, cambiar la otra. Lo mismo con la regla del chip de promo (`promo_chip` en `site.rs` y `promoChip` en `app.js`) y con los íconos (`templates/icons.html` e `ICONS` en `app.js`). |
+| `/theme.js` | Aplica el modo claro/oscuro guardado (`localStorage`, clave `ofertas-rosario:tema`) en `data-theme` de `<html>` antes de pintar; se carga sin `defer`. El botón del header lo cambia (`setupTheme` en `app.js`). |
 | `/_headers` | Headers de Cloudflare: `sw.js` sin caché, `datos/` con CORS abierto y `max-age=0, must-revalidate` (el HTML ya sale así por defecto). Para todo: CSP solo `'self'` (nada de terceros ni inline), `frame-ancestors 'none'`, Permissions-Policy, COOP y HSTS. Si se suma un recurso externo o un estilo inline, hay que tocar la CSP. |
 | `/404.html` | Página de error (Workers la usa con `not_found_handling: "404-page"`). |
 

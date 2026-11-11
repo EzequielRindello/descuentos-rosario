@@ -1,4 +1,4 @@
-<!doctype html>
+{% import "icons.html" as icon %}<!doctype html>
 <html lang="es-AR">
 <head>
 <meta charset="utf-8">
@@ -16,6 +16,10 @@
 <meta property="og:url" content="{{ canonical }}">
 <meta property="og:image" content="{{ site.url }}/icons/icon-512.png">
 <meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#0369a1">
+<link rel="preload" href="/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="/theme.js"></script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/icon-192.png" type="image/png">
@@ -25,27 +29,36 @@
 {% endif %}<script src="/app.js" defer></script>
 </head>
 <body data-updated="{{ updated_iso }}">
-<header>
-<p><a href="/">{{ site.name }}</a> <button type="button" id="instalar-boton" aria-expanded="false" aria-controls="instalar-ayuda" hidden>¡Instalá la app!</button></p>
-<p id="instalar-ayuda" hidden></p>
-<nav aria-label="Secciones">
+<header class="site-header">
+<div class="header-inner">
+<a class="brand" href="/"><img src="/icons/favicon.svg" alt="" width="28" height="28">{{ site.name }}</a>
+<nav class="tabs" aria-label="Secciones">
 <ul>
-<li><a href="/">Inicio</a></li>
-{% for c in chains %}<li><a href="/{{ c.id }}/">{{ c.name }}</a></li>
-{% endfor %}<li><a href="/datos/">Datos abiertos</a></li>
+<li><a href="/"{% if canonical == site.url ~ "/" %} aria-current="page"{% endif %}>Inicio</a></li>
+{% for c in chains %}<li><a href="/{{ c.id }}/"{% if chain is defined and chain.id == c.id %} aria-current="page"{% endif %}>{{ c.name }}</a></li>
+{% endfor %}<li><a href="/datos/"{% if canonical == site.url ~ "/datos/" %} aria-current="page"{% endif %}>Datos abiertos</a></li>
 </ul>
 </nav>
+<div class="header-actions">
+<button type="button" id="tema-boton" class="icon-btn" hidden><svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg><svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span class="visually-hidden" id="tema-texto">Cambiar el modo de color</span></button>
+<button type="button" id="instalar-boton" class="btn" aria-expanded="false" aria-controls="instalar-ayuda" hidden>¡Instalá<span class="hide-narrow"> la app</span>!</button>
+</div>
+</div>
+<p id="instalar-ayuda" class="install-help" hidden></p>
 </header>
 
 <main>
-<div id="aviso-fecha" role="status" hidden></div>
+<div id="aviso-fecha" class="notice" role="status" hidden></div>
 {% block main %}{% endblock %}
 </main>
 
-<footer>
+<footer class="site-footer">
+<div class="footer-inner">
 <p>Ofertas actualizadas el {{ updated }}. Los precios salen de las webs de cada cadena y pueden no coincidir con el de la góndola. Revisá siempre en el súper antes de comprar.</p>
 <p>{{ site.name }} es un proyecto independiente y de código abierto, sin relación con las cadenas. Los datos del día se pueden descargar en <a href="/datos/">Datos abiertos</a>.</p>
-<p><a href="/preguntas-frecuentes/">Preguntas frecuentes</a> · <a href="/terminos/">Términos y aviso legal</a> · <a href="/privacidad/">Privacidad</a></p>
+<p class="footer-links"><a href="/preguntas-frecuentes/">Preguntas frecuentes</a> <a href="/terminos/">Términos y aviso legal</a> <a href="/privacidad/">Privacidad</a></p>
+</div>
 </footer>
+<button type="button" id="arriba" class="to-top" title="Volver arriba" hidden>{{ icon.arrow_up() }}<span class="visually-hidden">Volver arriba</span></button>
 </body>
 </html>

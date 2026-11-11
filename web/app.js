@@ -66,6 +66,41 @@ function isInstalledApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
+// ---------- Light / dark ----------
+// theme.js applies the saved choice before paint. Without one, the site follows the device; the
+// button flips whatever is showing now and remembers it on this device.
+
+const THEME_KEY = 'ofertas-rosario:tema';
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function currentTheme() {
+  return document.documentElement.dataset.theme || (darkQuery.matches ? 'dark' : 'light');
+}
+
+function setupTheme() {
+  const button = $('#tema-boton');
+  if (!button) return;
+  const sync = () => {
+    const dark = currentTheme() === 'dark';
+    button.setAttribute('aria-pressed', String(dark));
+    $('#tema-texto').textContent = dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+    button.title = $('#tema-texto').textContent;
+  };
+  button.hidden = false;
+  sync();
+  button.addEventListener('click', () => {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem(THEME_KEY, next);
+    } catch {
+      // Storage blocked: the choice lasts until the page is closed.
+    }
+    sync();
+  });
+  darkQuery.addEventListener('change', sync);
+}
+
 // ---------- Freshness notice ----------
 // Pages carry the time of their data (body[data-updated]). The service worker may serve an old
 // copy (offline, or slow network), so compare it with /datos/actualizado.json, which the service
@@ -101,6 +136,7 @@ async function checkFreshness() {
   if (latest.state === 'online' && latest.date > pageDate) {
     const button = document.createElement('button');
     button.type = 'button';
+    button.className = 'btn';
     button.textContent = 'Recargar';
     button.addEventListener('click', () => location.reload());
     notice.append('Hay ofertas más nuevas (del ' + dayLabel(latest.date) + '). ', button);
@@ -153,13 +189,44 @@ function formatArs(cents) {
   return '$' + integer + (rest ? ',' + String(rest).padStart(2, '0') : '');
 }
 
+// Small DOM helper: element with a class and children (strings become text, never HTML).
+function el(tag, className, ...children) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.append(...children.filter((child) => child !== null && child !== undefined && child !== ''));
+  return node;
+}
+
+// Same icons as templates/icons.html (decorative: hidden from screen readers).
+const ICONS = {
+  external: 'M7 17 17 7M9 7h8v8',
+};
+
+function icon(name) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  const attrs = { class: 'icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' };
+  for (const [key, value] of Object.entries(attrs)) svg.setAttribute(key, value);
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', ICONS[name]);
+  svg.append(path);
+  return svg;
+}
+
+// Promo text worth showing next to the badge (same rule as promo_chip in src/site.rs): a bare
+// "35%Dto" repeats the badge and DAR's "Oferta" is on every offer, so neither is shown.
+function promoChip(promo) {
+  const text = (promo || '').trim();
+  if (!text || /^oferta$/i.test(text) || /^\d+\s*%\s*dto\.?$/i.test(text)) return '';
+  return text;
+}
+
+// Same markup as templates/offers.html, so search results and saved offers look identical.
 function renderList(rows) {
-  const list = document.createElement('ol');
-  list.className = 'ofertas';
+  const list = el('ol', 'cards');
   for (const [key, chainName, name, price, listPrice, discount, promo, url, image] of rows) {
-    const item = document.createElement('li');
+    const item = el('li', 'card');
     item.dataset.id = key;
-    const parts = [];
     if (image) {
       // Thumbnail from the chain's image server (same attributes as the server-rendered pages).
       const img = document.createElement('img');
@@ -170,35 +237,27 @@ function renderList(rows) {
       img.loading = 'lazy';
       img.decoding = 'async';
       img.referrerPolicy = 'no-referrer';
-      item.append(img, ' ');
+      item.append(img);
     }
-    const title = document.createElement('b');
-    title.textContent = name;
-    item.append(title, ' · ' + chainName + ' · ');
-    const strong = document.createElement('strong');
-    strong.textContent = formatArs(price);
-    item.append(strong);
-    if (listPrice) {
-      item.append(' · antes ');
-      const before = document.createElement('s');
-      before.textContent = formatArs(listPrice);
-      const off = document.createElement('em');
-      off.textContent = '-' + discount + '%';
-      item.append(before, ' · ', off);
+    const priceLine = el('p', 'card-price', el('strong', 'price', formatArs(price)));
+    if (listPrice) priceLine.append(' ', el('span', 'before', 'antes ', el('s', '', formatArs(listPrice))));
+    let tags = null;
+    const chip = promoChip(promo);
+    if (listPrice || chip) {
+      tags = el('p', 'card-tags');
+      if (listPrice) tags.append(el('em', discount >= 40 ? 'badge badge-big' : 'badge', '-' + discount + '%'));
+      if (chip) tags.append(' ', el('span', 'chip', chip));
     }
-    if (promo) parts.push(promo);
-    if (parts.length) item.append(' · ' + parts.join(' · '));
+    const actions = el('p', 'card-actions');
     if (url) {
-      item.append(' · ');
-      const link = document.createElement('a');
+      const link = el('a', 'card-link', 'ver en ' + chainName + ' ', icon('external'));
       link.href = url;
       link.rel = 'nofollow noopener';
       link.target = '_blank';
-      link.textContent = 'ver en ' + chainName;
-      item.append(link);
+      actions.append(link);
     }
-    item.append(' ');
-    item.append(saveButton(key));
+    actions.append(saveButton(key));
+    item.append(el('div', 'card-body', el('b', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, actions));
     list.append(item);
   }
   return list;
@@ -206,7 +265,9 @@ function renderList(rows) {
 
 // ---------- Search and filters ----------
 // Everything runs over /datos/buscar.json (all of today's offers). The filters live in the URL
-// (?q=&cadena=&min=&promo=&orden=) so a filtered view can be shared or restored with "back".
+// (?q=&cadena=&min=&promo=&desde=&hasta=&orden=) so a filtered view can be shared or restored with
+// "back". On a chain page the form has a single hidden chain box: searches stay inside that chain
+// and, with no filter, the page shows its own server-rendered list again.
 
 const PAGE_SIZE = 50;
 let shown = PAGE_SIZE;
@@ -224,23 +285,89 @@ function chainBoxes() {
   return [...document.querySelectorAll('#filtros input[name="cadena"]')];
 }
 
+// Chain page: one fixed (hidden) chain box instead of the chain chips.
+function isChainPage() {
+  return chainBoxes().length === 1;
+}
+
+// ---------- Validation ----------
+// Prices are whole pesos, typed as "1500", "1.500" or "$ 1.500" (dots as thousands separators, the
+// way prices are written here). Anything else is an error shown under the fields, and while there is
+// one the price filter is not applied and stays out of the URL.
+
+const MAX_PESOS = 10000000;
+const MAX_QUERY = 80;
+const PESOS_FORMAT = /^(\d{1,3}(\.\d{3})+|\d+)$/;
+
+function parsePesos(raw) {
+  const text = raw.trim().replace(/^\$\s*/, '');
+  if (!text) return { value: 0 };
+  if (!PESOS_FORMAT.test(text)) return { error: 'Usá solo números enteros, por ejemplo 1500 o 1.500.' };
+  const value = Number(text.replace(/\./g, ''));
+  if (value > MAX_PESOS) return { error: 'El precio máximo es $10.000.000.' };
+  return { value };
+}
+
+function readPrice() {
+  const from = parsePesos($('#f-desde').value);
+  const to = parsePesos($('#f-hasta').value);
+  const invalid = { from: Boolean(from.error), to: Boolean(to.error) };
+  let error = from.error || to.error || '';
+  if (!error && from.value && to.value && from.value > to.value) {
+    error = '"Desde" tiene que ser menor o igual que "Hasta".';
+    invalid.from = invalid.to = true;
+  }
+  return { from: error ? 0 : from.value, to: error ? 0 : to.value, error, invalid };
+}
+
+// Marks the price fields and shows the message (an empty live region when everything is fine).
+function showPriceValidation(price) {
+  $('#f-desde').setAttribute('aria-invalid', String(price.invalid.from));
+  $('#f-hasta').setAttribute('aria-invalid', String(price.invalid.to));
+  const message = $('#precio-error');
+  if (message.textContent !== price.error) message.textContent = price.error;
+}
+
+// Words of one letter are ignored by the search: say so instead of silently showing nothing new.
+function showQueryHint(filters) {
+  const hint = $('#q-ayuda');
+  const text = filters.q.trim() && !searchWords(filters.q).length ? 'Escribí al menos 2 letras para buscar.' : '';
+  if (hint.textContent !== text) hint.textContent = text;
+}
+
+function searchWords(q) {
+  return normalize(q).split(/\s+/).filter((word) => word.length > 1);
+}
+
+// On leaving a price field, write the number the way it is read: "1500" becomes "1.500".
+function formatPesosField(input) {
+  const parsed = parsePesos(input.value);
+  if (!parsed.error) input.value = parsed.value ? parsed.value.toLocaleString('es-AR') : '';
+}
+
 function readFilters() {
   const chains = chainBoxes().filter((box) => box.checked).map((box) => box.value);
+  const price = readPrice();
   return {
     q: $('#q').value,
     chains,
     allChains: chains.length === chainBoxes().length,
     min: Number($('#f-min').value) || 0,
     promo: $('#f-promo').value,
+    from: price.from,
+    to: price.to,
+    price,
     orden: $('#f-orden').value,
   };
 }
 
 function filtersFromUrl() {
   const params = new URLSearchParams(location.search);
-  $('#q').value = params.get('q') || '';
-  const wanted = (params.get('cadena') || '').split(',').filter(Boolean);
-  if (wanted.length) chainBoxes().forEach((box) => (box.checked = wanted.includes(box.value)));
+  $('#q').value = (params.get('q') || '').slice(0, MAX_QUERY);
+  // Unknown chains in the URL are ignored; if none is known, every chain stays checked.
+  const known = new Set(chainBoxes().map((box) => box.value));
+  const wanted = (params.get('cadena') || '').split(',').filter((id) => known.has(id));
+  chainBoxes().forEach((box) => (box.checked = !wanted.length || wanted.includes(box.value)));
   const setSelect = (id, value) => {
     const select = $(id);
     if ([...select.options].some((option) => option.value === value)) select.value = value;
@@ -248,6 +375,12 @@ function filtersFromUrl() {
   setSelect('#f-min', params.get('min') || '');
   setSelect('#f-promo', params.get('promo') || '');
   setSelect('#f-orden', params.get('orden') || '');
+  const setPesos = (id, value) => {
+    const parsed = parsePesos(/^\d+$/.test(value || '') ? value : '');
+    $(id).value = parsed.value ? parsed.value.toLocaleString('es-AR') : '';
+  };
+  setPesos('#f-desde', params.get('desde'));
+  setPesos('#f-hasta', params.get('hasta'));
 }
 
 function filtersToUrl(filters) {
@@ -256,15 +389,22 @@ function filtersToUrl(filters) {
   if (!filters.allChains) params.set('cadena', filters.chains.join(','));
   if (filters.min) params.set('min', String(filters.min));
   if (filters.promo) params.set('promo', filters.promo);
+  if (filters.from) params.set('desde', String(filters.from));
+  if (filters.to) params.set('hasta', String(filters.to));
   if (filters.orden) params.set('orden', filters.orden);
   const query = params.toString().replace(/%2C/gi, ',');
   history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
 }
 
+let emptyState = null;
+
 function setupSearch() {
   const form = $('#filtros');
   const results = $('#resultados');
   if (!form || !results) return;
+  // What the server rendered in the results area: the shortcuts on the home page, the chain's own
+  // list (and pager) on a chain page. Shown again, as the same node, when no filter is active.
+  emptyState = results.firstElementChild;
   form.querySelectorAll('[disabled]').forEach((control) => (control.disabled = false));
   filtersFromUrl();
 
@@ -272,6 +412,8 @@ function setupSearch() {
   const update = () => {
     shown = PAGE_SIZE;
     const filters = readFilters();
+    showPriceValidation(filters.price);
+    showQueryHint(filters);
     filtersToUrl(filters);
     renderResults(filters, results);
   };
@@ -280,12 +422,65 @@ function setupSearch() {
     update();
   });
   form.addEventListener('change', update);
-  $('#q').addEventListener('focus', () => loadIndex().catch(() => {}), { once: true });
-  $('#q').addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(update, 200);
+  form.addEventListener('change', updateFilterCount);
+  updateFilterCount();
+  // "Limpiar filtros": back to every chain, any discount, promo and price, default order. Keeps the text.
+  $('#limpiar-filtros').addEventListener('click', () => {
+    chainBoxes().forEach((box) => (box.checked = true));
+    ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
+    updateFilterCount();
+    update();
+    $('#q').focus();
   });
-  if (location.search) renderResults(readFilters(), results);
+  // The filters panel is a <details>: always open on wide screens (its toggle is hidden there).
+  const panel = form.querySelector('.filters-panel');
+  const wide = window.matchMedia('(min-width: 1024px)');
+  const syncPanel = () => {
+    if (panel && wide.matches) panel.open = true;
+  };
+  syncPanel();
+  wide.addEventListener('change', syncPanel);
+  // Shortcuts in the empty state ("50% o más", "2x1 y 3x2", "yerba"...): apply them in place
+  // instead of reloading the page. Delegated, because the empty state is taken out and put back.
+  results.addEventListener('click', (event) => {
+    const link = event.target.closest('a[data-quick]');
+    if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    history.replaceState(null, '', link.pathname + link.search + location.hash);
+    filtersFromUrl();
+    updateFilterCount();
+    update();
+    if (results.getBoundingClientRect().top < 0) results.scrollIntoView({ block: 'start' });
+  });
+  $('#q').addEventListener('focus', () => loadIndex().catch(() => {}), { once: true });
+  ['#f-desde', '#f-hasta'].forEach((id) => $(id).addEventListener('change', (event) => formatPesosField(event.target)));
+  // Text and prices apply while typing, after a short pause.
+  ['#q', '#f-desde', '#f-hasta'].forEach((id) =>
+    $(id).addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        update();
+        updateFilterCount();
+      }, 300);
+    })
+  );
+  if (location.search) {
+    const filters = readFilters();
+    showPriceValidation(filters.price);
+    showQueryHint(filters);
+    renderResults(filters, results);
+  }
+}
+
+// "Filtros (2)": how many filters differ from the defaults, shown on the closed panel's toggle.
+function updateFilterCount() {
+  const counter = $('#filtros-cuenta');
+  if (!counter) return;
+  const filters = readFilters();
+  const active = [!filters.allChains, filters.min, filters.promo, filters.from || filters.to, filters.orden].filter(Boolean).length;
+  counter.textContent = active ? '(' + active + ')' : '';
+  const clear = $('#limpiar-filtros');
+  if (clear) clear.hidden = active === 0;
 }
 
 const SORTS = {
@@ -295,10 +490,18 @@ const SORTS = {
 };
 
 async function renderResults(filters, results) {
-  const words = normalize(filters.q).split(/\s+/).filter((word) => word.length > 1);
-  const filtering = words.length || !filters.allChains || filters.min || filters.promo;
+  const words = searchWords(filters.q);
+  // On a chain page, a different order alone also needs the full list (the page only has 100).
+  const filtering = words.length || !filters.allChains || filters.min || filters.promo || filters.from || filters.to || (isChainPage() && filters.orden);
   if (!filtering) {
-    results.replaceChildren();
+    // Back to what the server rendered (shortcuts, or the chain's list). Its save buttons may be
+    // stale: they were detached while results were shown.
+    if (emptyState) {
+      results.replaceChildren(emptyState);
+      emptyState.querySelectorAll('button[data-fav]').forEach((button) => syncButton(button, isSaved(button.dataset.fav)));
+    } else {
+      results.replaceChildren();
+    }
     return;
   }
   let index;
@@ -315,24 +518,30 @@ async function renderResults(filters, results) {
     .filter((row) => chains.has(row[0].split(':')[0]))
     .filter((row) => !filters.min || (row[5] || 0) >= filters.min)
     .filter((row) => !filters.promo || promoKind(row) === filters.promo)
+    .filter((row) => !filters.from || row[3] >= filters.from * 100)
+    .filter((row) => !filters.to || row[3] <= filters.to * 100)
     .sort(SORTS[filters.orden] || SORTS['']);
 
   const parts = [];
   const summary = document.createElement('p');
+  summary.className = 'results-count';
   summary.textContent = matches.length
     ? matches.length + (matches.length === 1 ? ' oferta' : ' ofertas') + (matches.length > shown ? '. Mostrando ' + shown + '.' : '.')
     : 'No hay ofertas con estos filtros hoy.';
   parts.push(summary);
   if ((filters.min || filters.promo === 'rebaja') && chains.has('dar')) {
     const note = document.createElement('p');
+    note.className = 'results-hint';
     note.textContent = 'DAR no publica precio anterior: no aparece al filtrar por descuento.';
     parts.push(note);
   }
-  // How to see the same price on each chain's site, for the chains in the shown results.
-  const shownChains = new Set(matches.slice(0, shown).map((row) => row[0].split(':')[0]));
+  // How to see the same price on each chain's site, for the chains in the shown results (a chain
+  // page already says it above the form).
+  const shownChains = new Set(isChainPage() ? [] : matches.slice(0, shown).map((row) => row[0].split(':')[0]));
   for (const box of chainBoxes()) {
     if (shownChains.has(box.value) && box.dataset.hint) {
       const hint = document.createElement('p');
+      hint.className = 'results-hint';
       hint.textContent = box.dataset.name + ': ' + box.dataset.hint.charAt(0).toLowerCase() + box.dataset.hint.slice(1);
       parts.push(hint);
     }
@@ -341,6 +550,7 @@ async function renderResults(filters, results) {
   if (matches.length > shown) {
     const more = document.createElement('button');
     more.type = 'button';
+    more.className = 'btn btn-primary';
     more.textContent = 'Mostrar ' + Math.min(PAGE_SIZE, matches.length - shown) + ' más';
     more.addEventListener('click', () => {
       shown += PAGE_SIZE;
@@ -379,6 +589,7 @@ function isSaved(key) {
 function saveButton(key) {
   const button = document.createElement('button');
   button.type = 'button';
+  button.className = 'btn-save';
   button.dataset.fav = key;
   syncButton(button, isSaved(key));
   return button;
@@ -386,6 +597,7 @@ function saveButton(key) {
 
 function syncButton(button, saved) {
   button.hidden = false;
+  button.dataset.saved = String(saved);
   button.textContent = saved ? 'Descartar' : 'Guardar';
 }
 
@@ -443,17 +655,49 @@ async function renderSaved() {
   if (gone.length) {
     const note = document.createElement('p');
     note.textContent = gone.length === 1 ? 'Hoy no está en oferta (si vuelve, aparece de nuevo arriba):' : 'Hoy no están en oferta (si vuelven, aparecen de nuevo arriba):';
-    const list = document.createElement('ul');
+    note.className = 'lead';
+    const list = el('ul', 'gone-list');
     for (const item of gone) {
-      const entry = document.createElement('li');
-      entry.append((item.name || 'Un producto guardado') + ' (' + chainOf(item.key) + ') ', saveButton(item.key));
-      list.append(entry);
+      list.append(el('li', '', el('span', '', (item.name || 'Un producto guardado') + ' (' + chainOf(item.key) + ')'), saveButton(item.key)));
     }
     container.append(note, list);
   }
 }
 
+// ---------- Back to top ----------
+// Floating button for long lists, shown only after scrolling down a couple of screens.
+
+function setupToTop() {
+  const button = $('#arriba');
+  if (!button) return;
+  let ticking = false;
+  const sync = () => {
+    button.hidden = window.scrollY < window.innerHeight * 1.5;
+    ticking = false;
+  };
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(sync);
+      }
+    },
+    { passive: true }
+  );
+  button.addEventListener('click', () => {
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+    // Keyboard users land at the top too, not on a button that is about to hide.
+    const brand = document.querySelector('.brand');
+    if (brand) brand.focus({ preventScroll: true });
+  });
+  sync();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  setupTheme();
+  setupToTop();
   setupInstall();
   setupFreshness();
   setupSearch();

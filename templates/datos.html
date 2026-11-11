@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block main %}
+<article class="prose">
 <h1>Datos abiertos</h1>
 <p>Todas las ofertas del día se pueden descargar y usar libremente. Se actualizan todas las mañanas. Última actualización: {{ updated }}.</p>
 
@@ -25,4 +26,5 @@
 <dt><code>source</code></dt><dd>De dónde sale el precio. Hoy siempre <code>web</code>: el precio online.</dd>
 </dl>
 <p>Los precios online pueden diferir de los de la góndola.</p>
+</article>
 {% endblock %}

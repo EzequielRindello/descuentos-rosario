@@ -1,0 +1,49 @@
+{# Search and filters form, shared by the home page and each chain page. On a chain page `fixed` is
+   that chain: its only chain box is hidden and always checked, so every search stays inside it. #}
+<form id="filtros" role="search" novalidate action="{% if fixed %}/{{ fixed.id }}/{% else %}/{% endif %}">
+<p class="search-field"><label for="q" class="visually-hidden">Producto</label>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+<input id="q" name="q" type="search" placeholder="yerba, leche, aceite..." autocomplete="off" maxlength="80" aria-describedby="q-ayuda" disabled></p>
+<p id="q-ayuda" class="field-hint" aria-live="polite"></p>
+<details class="filters-panel">
+<summary>Filtros <span id="filtros-cuenta"></span></summary>
+<div class="filters-body">
+{% if fixed %}<input type="checkbox" name="cadena" value="{{ fixed.id }}" data-name="{{ fixed.name }}" data-hint="{{ fixed.hint }}" checked hidden disabled>
+{% else %}<fieldset>
+<legend>Cadena</legend>
+{% for c in chains %}{% if not c.failed %}<label class="chip-check"><input type="checkbox" name="cadena" value="{{ c.id }}" data-name="{{ c.name }}" data-hint="{{ c.hint }}" checked disabled> {{ c.name }}</label>
+{% endif %}{% endfor %}</fieldset>
+{% endif %}<p class="field"><label for="f-min">Descuento</label>
+<span class="select"><select id="f-min" name="min" disabled>
+<option value="">Cualquiera</option>
+<option value="10">10% o más</option>
+<option value="20">20% o más</option>
+<option value="30">30% o más</option>
+<option value="40">40% o más</option>
+<option value="50">50% o más</option>
+</select></span></p>
+<p class="field"><label for="f-promo">Promo</label>
+<span class="select"><select id="f-promo" name="promo" disabled>
+<option value="">Todas</option>
+<option value="rebaja">Precio rebajado</option>
+<option value="nxm">2x1 y 3x2</option>
+<option value="2da">2da unidad</option>
+<option value="varias">Llevando varias</option>
+</select></span></p>
+<fieldset class="price-range">
+<legend>Precio</legend>
+<p class="money"><label for="f-desde">Desde</label><span class="money-field"><span aria-hidden="true">$</span><input id="f-desde" name="desde" type="text" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="0" aria-describedby="precio-error" disabled></span></p>
+<p class="money"><label for="f-hasta">Hasta</label><span class="money-field"><span aria-hidden="true">$</span><input id="f-hasta" name="hasta" type="text" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="sin tope" aria-describedby="precio-error" disabled></span></p>
+<p id="precio-error" class="field-error" aria-live="polite"></p>
+</fieldset>
+<p class="field"><label for="f-orden">Ordenar</label>
+<span class="select"><select id="f-orden" name="orden" disabled>
+<option value="">Mayor descuento</option>
+<option value="precio">Menor precio</option>
+<option value="nombre">Nombre</option>
+</select></span></p>
+<p class="field"><button type="button" id="limpiar-filtros" class="btn" hidden>Limpiar filtros</button></p>
+</div>
+</details>
+</form>
+<noscript><p>La búsqueda y los filtros necesitan JavaScript.{% if not fixed %} Podés ver todas las ofertas en la página de cada cadena.{% endif %}</p></noscript>

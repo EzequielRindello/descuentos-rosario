@@ -6,7 +6,7 @@ Antes de hacer cualquier cosa, leé `STATUS.md` (estado, decisiones, tareas) y `
 - Los commits los hace el mantenedor a mano. El agente propone el mensaje (`tipo: descripción`, en español) y, cuando le pasan el hash, lo carga en la tabla de commits de `STATUS.md`.
 - Si cambia cómo se lee una fuente, actualizá `docs/context.md`.
 - Todo en español (docs, web, README), menos el código (identificadores y comentarios en inglés).
-- Nada de estilos, fuentes ni colores hasta que se pida explícitamente.
+- Estilos: la paleta ("Celeste Rosario": celeste, rojo y amarillo) y la tipografía (Inter, alojada en el sitio) están en `web/styles.css`. No sumar colores, fuentes ni recursos externos sin pedirlo. Texto blanco sobre celeste y rojo, casi negro sobre amarillo; todo texto 4,5:1 y todo borde de control 3:1, en los dos temas.
 - Comandos para compilar, testear y scrapear: sección "Cómo correrlo" de `STATUS.md`.
 - Un bot commitea `data/` en `main` todos los días: hacé `git pull` antes de empezar. No edites `data/` a mano.
 - Publicar (`wrangler deploy`), disparar el workflow o tocar secrets de GitHub/Cloudflare: pedir OK antes.

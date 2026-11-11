@@ -32,4 +32,4 @@ Los precios salen de las webs públicas de cada cadena y pueden no coincidir con
 - [`docs/context.md`](docs/context.md): cómo se lee cada supermercado.
 - [`config/stores.toml`](config/stores.toml): las sucursales. Se puede corregir con un PR sin saber programar.
 
-Licencia [MIT](LICENSE).
+Licencia [MIT](LICENSE). La tipografía es [Inter](https://github.com/rsms/inter), con licencia SIL Open Font License ([`web/fonts/OFL.txt`](web/fonts/OFL.txt)).

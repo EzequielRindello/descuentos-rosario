@@ -1,48 +1,27 @@
 {% extends "base.html" %}
+{% import "icons.html" as icon %}
 {% block main %}
 <h1>Ofertas de supermercados en Rosario</h1>
-<p>Actualizado el {{ updated }}. {% if available_label %}Hoy hay <strong>{{ total_label }}</strong> ofertas de {{ available_label }}.{% else %}Hoy no pudimos leer las ofertas de ninguna cadena.{% endif %}</p>
+<p class="lead">Actualizado el {{ updated }}. {% if available_label %}Hoy hay <strong>{{ total_label }}</strong> ofertas de {{ available_label }}.{% else %}Hoy no pudimos leer las ofertas de ninguna cadena.{% endif %}</p>
 
-<section id="buscar">
+<section id="buscar" class="search-layout">
 <h2>Buscar y filtrar</h2>
-<form id="filtros" role="search" action="/">
-<p><label for="q">Producto</label>
-<input id="q" name="q" type="search" placeholder="yerba, leche, aceite..." autocomplete="off" disabled></p>
-<fieldset>
-<legend>Cadena</legend>
-{% for c in chains %}{% if not c.failed %}<label><input type="checkbox" name="cadena" value="{{ c.id }}" data-name="{{ c.name }}" data-hint="{{ c.hint }}" checked disabled> {{ c.name }}</label>
-{% endif %}{% endfor %}</fieldset>
-<p><label for="f-min">Descuento</label>
-<select id="f-min" name="min" disabled>
-<option value="">Cualquiera</option>
-<option value="10">10% o más</option>
-<option value="20">20% o más</option>
-<option value="30">30% o más</option>
-<option value="40">40% o más</option>
-<option value="50">50% o más</option>
-</select></p>
-<p><label for="f-promo">Promo</label>
-<select id="f-promo" name="promo" disabled>
-<option value="">Todas</option>
-<option value="rebaja">Precio rebajado</option>
-<option value="nxm">2x1 y 3x2</option>
-<option value="2da">2da unidad</option>
-<option value="varias">Llevando varias</option>
-</select></p>
-<p><label for="f-orden">Ordenar</label>
-<select id="f-orden" name="orden" disabled>
-<option value="">Mayor descuento</option>
-<option value="precio">Menor precio</option>
-<option value="nombre">Nombre</option>
-</select></p>
-</form>
-<noscript><p>La búsqueda y los filtros necesitan JavaScript. Podés ver todas las ofertas en la página de cada cadena.</p></noscript>
-<div id="resultados" aria-live="polite"></div>
+{% include "search_form.html" %}
+<div id="resultados" aria-live="polite"><div class="results-empty quick">
+<p class="quick-intro"><strong>Buscá un producto o usá los filtros.</strong> Por ejemplo:</p>
+{% if quick.min50 or quick.min40 or quick.nxm or quick.second %}<ul class="quick-grid">
+{% if quick.min50 %}<li><a class="quick-card quick-hot" href="/?min=50#buscar" data-quick><span class="quick-big">50%</span> <span class="quick-label">o más de descuento</span> <span class="quick-count">{{ quick.min50 }} ofertas {{ icon.arrow_right() }}</span></a></li>
+{% endif %}{% if quick.min40 %}<li><a class="quick-card quick-accent" href="/?min=40#buscar" data-quick><span class="quick-big">40%</span> <span class="quick-label">o más de descuento</span> <span class="quick-count">{{ quick.min40 }} ofertas {{ icon.arrow_right() }}</span></a></li>
+{% endif %}{% if quick.nxm %}<li><a class="quick-card quick-sun" href="/?promo=nxm#buscar" data-quick><span class="quick-big">2x1</span> <span class="quick-label">y 3x2</span> <span class="quick-count">{{ quick.nxm }} ofertas {{ icon.arrow_right() }}</span></a></li>
+{% endif %}{% if quick.second %}<li><a class="quick-card quick-soft" href="/?promo=2da#buscar" data-quick><span class="quick-big">2da</span> <span class="quick-label">unidad con descuento</span> <span class="quick-count">{{ quick.second }} ofertas {{ icon.arrow_right() }}</span></a></li>
+{% endif %}</ul>
+{% endif %}{% if quick.words %}<p class="quick-words"><span>Probá con:</span> {% for w in quick.words %}<a href="/?q={{ w.word }}#buscar" data-quick>{{ w.word }} <span class="quick-words-count">{{ w.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
+{% endif %}</div></div>
 </section>
 
 <section id="guardados" hidden>
 <h2>Tus guardados</h2>
-<p>Se guardan solo en este dispositivo.</p>
+<p class="lead">Se guardan solo en este dispositivo.</p>
 <div id="guardados-lista"></div>
 </section>
 
@@ -50,16 +29,16 @@
 <section>
 <h2>Mejores ofertas de {{ c.name }}</h2>
 {% if c.failed %}{% include "failed.html" %}
-{% else %}<p>{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
-{% if c.hint %}<p>{{ c.hint }}</p>
+{% else %}<p class="lead">{{ c.store }}. {{ c.count_label }} ofertas hoy.{% if not c.has_list_prices %} Esta cadena no publica el precio anterior, así que no se puede calcular el descuento.{% endif %}</p>
+{% if c.hint %}<p class="note">{{ c.hint }}</p>
 {% endif %}
 {% with offers = c.top, start = none %}{% include "offers.html" %}{% endwith %}
-<p><a href="/{{ c.id }}/">Ver las {{ c.count_label }} ofertas de {{ c.name }}</a></p>
+<p><a class="btn" href="/{{ c.id }}/">Ver las {{ c.count_label }} ofertas de {{ c.name }}</a></p>
 {% endif %}
 </section>
 {% endfor %}
 
-<section>
+<section class="prose">
 <h2>Cómo funciona</h2>
 <p>Todas las mañanas se revisan las webs de cada supermercado y se guardan las ofertas con precio de Rosario: precio de oferta, precio anterior cuando la cadena lo publica, y promociones como 2x1 o 70% en la segunda unidad.</p>
 <p>Los descuentos se calculan contra el precio anterior que muestra cada cadena. Si ese precio no es creíble (más de 5 veces el actual), se descarta.</p>

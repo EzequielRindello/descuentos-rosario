@@ -123,6 +123,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "json_ld": json_ld(&home_ld),
         "total_label": group_thousands(total as u64),
         "available_label": join_names(&available),
+        "quick": quick_counts(&chains),
     })))?;
 
     // One paginated section per chain.
@@ -210,6 +211,8 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
 fn environment() -> Result<Environment<'static>> {
     let mut env = Environment::new();
     env.add_template("base.html", include_str!("../templates/base.html"))?;
+    env.add_template("icons.html", include_str!("../templates/icons.html"))?;
+    env.add_template("search_form.html", include_str!("../templates/search_form.html"))?;
     env.add_template("offers.html", include_str!("../templates/offers.html"))?;
     env.add_template("failed.html", include_str!("../templates/failed.html"))?;
     env.add_template("index.html", include_str!("../templates/index.html"))?;
@@ -313,10 +316,80 @@ fn view(offer: &Offer) -> OfferView {
         price: format_ars(offer.price),
         list_price: offer.list_price.map(format_ars),
         discount_pct: offer.discount_pct,
-        promo: offer.promo.clone(),
+        promo: promo_chip(offer.promo.as_deref()),
         url: offer.url.clone(),
         image: thumbnail(offer),
     }
+}
+
+/// Promo text worth showing next to the discount badge. Hidden when it repeats what the page
+/// already says: a bare "35%Dto" (the badge shows the discount) or DAR's generic "Oferta" (every
+/// DAR offer has it). The full text stays in the data files. Same rule as `promoChip` in app.js.
+fn promo_chip(promo: Option<&str>) -> Option<String> {
+    static BARE_PCT: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?i)^\d+\s*%\s*dto\.?$").expect("valid regex"));
+    let promo = promo?.trim();
+    (!promo.is_empty() && !promo.eq_ignore_ascii_case("oferta") && !BARE_PCT.is_match(promo)).then(|| promo.to_string())
+}
+
+/// Kind of promotion, from the chain's promo text and the discount. Same rule as `promoKind` in
+/// app.js, so the shortcut counts on the home page match what the search filter finds.
+fn promo_kind(offer: &Offer) -> &'static str {
+    static NXM: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?i)\d\s*x\s*\d").expect("valid regex"));
+    static SECOND: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?i)2da").expect("valid regex"));
+    static SEVERAL: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"(?i)llevando").expect("valid regex"));
+    let promo = offer.promo.as_deref().unwrap_or("");
+    if NXM.is_match(promo) {
+        "nxm"
+    } else if SECOND.is_match(promo) {
+        "2da"
+    } else if SEVERAL.is_match(promo) {
+        "varias"
+    } else if offer.discount_pct.unwrap_or(0) > 0 {
+        "rebaja"
+    } else {
+        ""
+    }
+}
+
+/// How many of today's offers each home shortcut finds ("50% o más", "2x1 y 3x2"...). Zero means
+/// the shortcut is hidden. Failed chains have no offers, same as in the search index.
+fn quick_counts(chains: &[ChainData]) -> serde_json::Value {
+    let offers = || chains.iter().flat_map(|c| c.offers.iter());
+    let label = |n: usize| (n > 0).then(|| group_thousands(n as u64));
+    json!({
+        "min50": label(offers().filter(|o| o.discount_pct.unwrap_or(0) >= 50).count()),
+        "min40": label(offers().filter(|o| o.discount_pct.unwrap_or(0) >= 40).count()),
+        "nxm": label(offers().filter(|o| promo_kind(o) == "nxm").count()),
+        "second": label(offers().filter(|o| promo_kind(o) == "2da").count()),
+        "words": QUICK_WORDS
+            .iter()
+            .filter_map(|word| {
+                let folded = fold(word);
+                let n = offers().filter(|o| fold(&o.name).contains(folded.as_str())).count();
+                label(n).map(|count| json!({ "word": word, "count": count }))
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// Everyday products suggested under the home search box (only those with offers today).
+const QUICK_WORDS: [&str; 8] = ["yerba", "leche", "aceite", "café", "fideos", "arroz", "queso", "galletitas"];
+
+/// Lowercase without accents, like `normalize` in app.js (enough for Spanish product names).
+fn fold(text: &str) -> String {
+    text.to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'í' | 'ì' | 'î' | 'ï' => 'i',
+            'ó' | 'ò' | 'ô' | 'ö' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' => 'u',
+            'ñ' => 'n',
+            'ç' => 'c',
+            other => other,
+        })
+        .collect()
 }
 
 /// Image hosts the pages may load from. Must match `img-src` in `web/_headers`.
@@ -445,6 +518,13 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
 
 fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     fs::write(out_dir.join("app.js"), include_str!("../web/app.js"))?;
+    fs::write(out_dir.join("styles.css"), include_str!("../web/styles.css"))?;
+    fs::write(out_dir.join("theme.js"), include_str!("../web/theme.js"))?;
+    // Inter (SIL OFL 1.1), Latin subset, variable weight; the license travels with the font.
+    let fonts = out_dir.join("fonts");
+    fs::create_dir_all(&fonts)?;
+    fs::write(fonts.join("inter-latin-wght.woff2"), include_bytes!("../web/fonts/inter-latin-wght.woff2"))?;
+    fs::write(fonts.join("OFL.txt"), include_str!("../web/fonts/OFL.txt"))?;
     fs::write(out_dir.join("manifest.webmanifest"), include_str!("../web/manifest.webmanifest"))?;
     fs::write(out_dir.join("_headers"), include_str!("../web/_headers"))?;
     let icons = out_dir.join("icons");
@@ -456,7 +536,16 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
 
     // Offline: the shell and the first page of each chain. The search index (~100 KB compressed)
     // is not precached: it is cached when first used, and app.js warms it up in the installed app.
-    let mut precache = vec!["/".to_string(), "/app.js".into(), "/manifest.webmanifest".into(), "/icons/icon-192.png".into()];
+    let mut precache = vec![
+        "/".to_string(),
+        "/app.js".into(),
+        "/styles.css".into(),
+        "/theme.js".into(),
+        "/fonts/inter-latin-wght.woff2".into(),
+        "/manifest.webmanifest".into(),
+        "/icons/icon-192.png".into(),
+        "/icons/favicon.svg".into(),
+    ];
     precache.extend(chains.iter().map(|c| format!("/{}/", c.id)));
     let version = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
     let sw = include_str!("../web/sw.js").replace("__VERSION__", &version).replace("__PRECACHE__", &serde_json::to_string(&precache)?);
@@ -563,11 +652,81 @@ mod tests {
     }
 
     #[test]
+    fn promo_chip_hides_repeated_text() {
+        assert_eq!(promo_chip(Some("35%Dto")), None);
+        assert_eq!(promo_chip(Some("Oferta")), None);
+        assert_eq!(promo_chip(None), None);
+        assert_eq!(promo_chip(Some("35%Dto (Llevando 2)")).as_deref(), Some("35%Dto (Llevando 2)"));
+        assert_eq!(promo_chip(Some("2x1 (Llevando 2)")).as_deref(), Some("2x1 (Llevando 2)"));
+        assert_eq!(promo_chip(Some("70% 2da (Llevando 2)")).as_deref(), Some("70% 2da (Llevando 2)"));
+    }
+
+    #[test]
+    fn promo_kind_matches_the_search_filter() {
+        let offer = |promo: Option<&str>, discount_pct: Option<u8>| Offer {
+            chain: Chain::Coto,
+            store: "x".into(),
+            id: "1".into(),
+            ean: None,
+            name: "x".into(),
+            price: 100,
+            list_price: None,
+            discount_pct,
+            promo: promo.map(Into::into),
+            url: None,
+            image: None,
+            source: crate::model::Source::Web,
+        };
+        assert_eq!(promo_kind(&offer(Some("2x1 (Llevando 2)"), Some(50))), "nxm");
+        assert_eq!(promo_kind(&offer(Some("3 X 2"), None)), "nxm");
+        assert_eq!(promo_kind(&offer(Some("70% 2da (Llevando 2)"), None)), "2da");
+        assert_eq!(promo_kind(&offer(Some("35%Dto (Llevando 2)"), Some(17))), "varias");
+        assert_eq!(promo_kind(&offer(Some("35%Dto"), Some(35))), "rebaja");
+        assert_eq!(promo_kind(&offer(None, None)), "");
+    }
+
+    #[test]
     fn joins_chain_names() {
         assert_eq!(join_names(&[]), "");
         assert_eq!(join_names(&["Coto"]), "Coto");
         assert_eq!(join_names(&["Carrefour", "DAR"]), "Carrefour y DAR");
         assert_eq!(join_names(&["Carrefour", "Coto", "DAR"]), "Carrefour, Coto y DAR");
+    }
+
+    #[test]
+    fn pager_links_stay_on_the_same_site() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-pager-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let offers: Vec<String> = (1..=3)
+            .map(|i| {
+                format!(
+                    r#"{{"chain":"carrefour","store":"x","id":"{i}","ean":null,"name":"Producto {i}","price":100,"list_price":200,"discount_pct":50,"promo":null,"url":null,"image":null,"source":"web"}}"#
+                )
+            })
+            .collect();
+        fs::write(data.join("offers/carrefour.json"), format!("[{}]", offers.join(","))).unwrap();
+        fs::write(
+            data.join("run.json"),
+            r#"{"generated_at":"2026-11-12T07:05:00-03:00","chains":{"carrefour":{"ok":true,"offers":3,"seconds":1,"error":null}}}"#,
+        )
+        .unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let mut site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        site.per_page = 1;
+        build(&data, &out, &site, &stores).unwrap();
+
+        // minijinja's HTML escaping writes "/" as "&#x2f;" inside attributes; browsers read both the same.
+        let page2 = fs::read_to_string(out.join("carrefour/pagina/2/index.html")).unwrap().replace("&#x2f;", "/");
+        let pager = &page2[page2.find(r#"<nav class="pager""#).unwrap()..];
+        let pager = &pager[..pager.find("</nav>").unwrap()];
+        assert!(pager.contains(r#"href="/carrefour/" rel="prev""#), "{pager}");
+        assert!(pager.contains(r#"href="/carrefour/pagina/3/" rel="next""#), "{pager}");
+        // The canonical (absolute) URLs belong in <link rel>, never in the visible links.
+        assert!(!pager.contains(&site.url), "{pager}");
+        assert!(page2.contains(&format!(r#"<link rel="next" href="{}/carrefour/pagina/3/">"#, site.url)));
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

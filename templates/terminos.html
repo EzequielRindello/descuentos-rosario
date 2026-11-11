@@ -1,35 +1,81 @@
 {% extends "base.html" %}
 {% block main %}
+<article class="prose info info-terms">
+<header class="info-hero">
 <h1>Términos de uso y aviso legal</h1>
 <p>Al usar {{ site.name }} aceptás estos términos. Última actualización: 11/11/2026.</p>
+</header>
 
+<div class="info-list">
+<section class="info-row">
 <h2>1. Qué es este sitio</h2>
+<div>
 <p>{{ site.name }} es un sitio informativo, gratuito y de código abierto que muestra ofertas publicadas por supermercados en sus webs. No vende productos, no intermedia en compras y no cobra por su uso.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>2. Sin relación con las cadenas</h2>
+<div>
 <p>{{ site.name }} no tiene relación con {% for c in chains %}{{ c.name }}{% if not loop.last %}{% if loop.revindex == 2 %} ni {% else %}, {% endif %}{% endif %}{% endfor %}, ni con ninguna otra cadena, y no está patrocinado ni avalado por ellas. Sus nombres y marcas pertenecen a sus dueños y se mencionan solo para indicar de dónde sale cada precio. No usamos sus logos. Las fotos de los productos pertenecen a sus dueños: se muestran desde los servidores de cada cadena, sin copiarlas, solo para identificar el producto, y se dejan de mostrar si la cadena lo pide.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>3. Los precios son informativos</h2>
+<div>
 <p>Los precios, descuentos y promociones se copian una vez por día de las webs públicas de cada cadena. Pueden cambiar en cualquier momento, tener errores o no coincidir con los de la tienda. El precio que vale es el que informa la cadena al momento de comprar. Revisalo siempre en el súper.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>4. Sin garantías</h2>
+<div>
 <p>El sitio se ofrece "tal cual". No garantizamos que la información sea exacta, completa o esté actualizada, ni que el sitio esté siempre disponible. No somos responsables por decisiones de compra tomadas a partir de esta información ni por el contenido de las webs de terceros a las que enlazamos.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>5. Cómo obtenemos los datos</h2>
+<div>
 <p>Leemos solo información pública, una vez por día, con un programa que se identifica como {{ site.name }}. Respetamos el archivo <code>robots.txt</code> de cada sitio, no iniciamos sesión, no usamos claves privadas y no salteamos ninguna protección.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>6. Pedidos de corrección o retiro</h2>
+<div>
 <p>Si representás a una cadena y querés que corrijamos algo o que dejemos de mostrar tus datos, {% if site.contact %}escribinos a <a href="mailto:{{ site.contact }}">{{ site.contact }}</a> y lo atendemos a la brevedad.{% else %}vamos a atenderlo a la brevedad. El canal de contacto se publica acá en los próximos días.{% endif %}</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>7. Datos abiertos y código</h2>
+<div>
 <p>Los datos de <a href="/datos/">Datos abiertos</a> se pueden reutilizar libremente; quien los use es responsable de cómo lo hace. El código del sitio se publica con licencia MIT.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>8. Privacidad</h2>
+<div>
 <p>No pedimos registro ni recolectamos datos personales. Ver <a href="/privacidad/">Privacidad</a>.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>9. Cambios</h2>
+<div>
 <p>Podemos actualizar estos términos. La fecha de arriba indica la última versión.</p>
+</div>
+</section>
 
+<section class="info-row">
 <h2>10. Ley aplicable</h2>
+<div>
 <p>Estos términos se rigen por las leyes de la República Argentina.</p>
+</div>
+</section>
+</div>
+</article>
 {% endblock %}
