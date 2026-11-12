@@ -28,6 +28,9 @@ pub struct SiteConfig {
     /// How to reach the maintainers (shown in FAQ, terms and privacy). Hidden when empty.
     #[serde(default)]
     pub contact: String,
+    /// Public source repository URL (linked in the footer). Hidden when empty.
+    #[serde(default)]
+    pub repo: String,
 }
 
 impl SiteConfig {

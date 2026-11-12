@@ -4,7 +4,7 @@ Leé esto primero si llegás sin contexto (persona o agente). Dice qué queremos
 
 **Regla:** este archivo se actualiza en cada cambio que importe. Cada tarea terminada cita el commit que la cerró (hash corto). Los commits se hacen a mano; el hash se carga después. Si algo de acá no coincide con el código o con `git log`, manda el código: corregí este archivo.
 
-Última actualización: 11/11/2026.
+Última actualización: 12/11/2026.
 
 ## Qué es
 
@@ -30,7 +30,9 @@ Primera corrida en GitHub (a mano, 11/11/2026, run `43022603196`): las tres cade
 
 Segunda corrida manual (11/11/2026, run `43030708828`, con `1e5ae5f`): todo OK. Carrefour 1.616, Coto 1.114, DAR 287; deploy y commit de `data/` (`c287d33`) funcionaron. Issue #1 cerrado.
 
-**Próximo paso:** revisar la primera corrida por cron, el **12/11/2026 a las 07:00** (ver "Cómo revisar la corrida diaria" más abajo). Es lo único del workflow que falta ver: que el `schedule` dispare solo.
+Primera corrida por cron (11/11/2026, run `43069628912`, evento `schedule`, con `d648065`): todo OK, deploy y commit de `data/` (`11906ee`). Arrancó a las 14:35 en vez de las 07:00: GitHub atrasa los workflows programados cuando tiene carga (el 12/11 a las 10:00 todavía no había corrido). Un push a `main` no publica: el código nuevo sale en la próxima corrida.
+
+**Próximo paso:** lo que falta para el lanzamiento (ver "Lanzamiento" más abajo).
 
 ## Cómo revisar la corrida diaria
 
@@ -69,7 +71,7 @@ Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y
 | Estilos | ✅ Paleta "Celeste Rosario", Inter, celu primero, grilla en escritorio, modo oscuro según el dispositivo | `web/styles.css`, `web/fonts/` |
 | Páginas legales | ✅ Preguntas frecuentes, términos y privacidad. Falta el canal de contacto y la revisión legal | `templates/preguntas.html`, `terminos.html`, `privacidad.html` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
-| GitHub Actions diario | 🟡 Corrida manual completa OK (11/11); falta ver que el cron dispare solo (12/11) | `.github/workflows/daily.yml` |
+| GitHub Actions diario | ✅ Corrida manual y por cron OK (11/11). El cron puede salir con horas de atraso | `.github/workflows/daily.yml` |
 | README para usuarios | ✅ Link, cómo instalarla y datos abiertos. Las capturas van después de los estilos | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
@@ -190,7 +192,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
 3. [x] **PWA**: manifest, `sw.js` offline, botón "Instalar" y texto para iPhone/Android; se oculta si ya está instalada. (`c2bbbf9`)
 4. [x] **JS del navegador**: búsqueda y guardados en `localStorage`. (`c2bbbf9`)
 5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
-6. [ ] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11 completa: las tres cadenas responden desde GitHub, deploy y commit de `data/` andan (`c287d33`). Falta confirmar que el cron dispare solo (12/11/2026, 07:00).
+6. [x] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11 completa: las tres cadenas responden desde GitHub, deploy y commit de `data/` andan (`c287d33`). Cron confirmado: el `schedule` disparó solo el 11/11/2026 (run `43069628912`, commit `11906ee`), con horas de atraso.
 7. [x] **Control de caídas**: 0 ofertas = error (al principio era "menos de la mitad que ayer"); el workflow abre un issue si alguna cadena falla. (`c2bbbf9`, ajustado después)
 8. [ ] **README**: cómo instalarla en el celu y datos abiertos, hecho (`085a52f`). Faltan las capturas, que van después de los estilos.
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console (propiedad "Prefijo de URL", verificación por archivo HTML en `web/`) y Bing Webmaster (importar desde Google). **Esperar** a la revisión de términos de las cadenas y al dominio propio.
@@ -212,7 +214,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
     - Falta: el celu real (instalar la app, sin señal), que lo prueba el mantenedor.
     Recién después: estilos.
 21. [x] **Imágenes de los productos**: miniaturas de Carrefour (versión de 160 px que arma VTEX) y Coto (foto "medium"), cargadas por el navegador desde el servidor de cada cadena, con carga diferida y sin referer. DAR sin fotos. En las páginas y en los resultados de búsqueda (`buscar.json` suma la miniatura como 9.º campo). CSP abierta solo a esos dos dominios; Privacidad y Términos actualizados. Probado en Chrome: cargan en Carrefour, Coto y la búsqueda, DAR sin fotos, sin errores de consola, 390 px sin scroll horizontal. (`cc9992b`)
-22. [x] **Estilos y diseño responsive** (plan aprobado el 11/11/2026): `web/styles.css` con la paleta de Cloudflare, Inter alojada en el sitio, header fijo con pestañas, tarjetas de oferta (foto, precio grande, cartel de descuento, chip de promo), filtros desplegables en el celu y en columna en escritorio, grilla de 2 a 4, paginación con botones, columna de lectura en las páginas de texto, modo oscuro. Íconos y `theme_color` en Tangerine. Primera visita: +52 KB (CSS 3 KB + fuente 48 KB, comprimidos). Probado en Chrome: escritorio (oscuro) y 390 px (claro y oscuro, sin scroll horizontal), búsqueda, filtros abiertos, cadena con paginación, preguntas; sin errores de consola; contraste de todos los pares 4,5:1 o más; recorrido automático sin problemas. Después: botón de modo claro/oscuro, "Limpiar filtros", flecha de los combos y limpieza de señales de web vibecodeada (ver Decisiones); probado en Chrome (el tema se guarda al recargar y cambiar de página, limpiar filtros, header de una línea a 360 y 390 px). Después: contraste de bordes de controles, atajos en la búsqueda vacía, diseño de preguntas, términos y privacidad, y el botón de instalar ya no dice "¡Instalá la app !" con espacio (ver Decisiones); probado en Chrome en claro y oscuro, escritorio y 390 px, sin scroll horizontal ni errores de consola, con los conteos de los atajos iguales a los resultados de la búsqueda. Después: arreglos de la revisión de diseño (ver Decisiones, 11/11/2026: precio por unidad, portada de 8 por cadena, relevancia, reintento, accesibilidad, historial); probado en Chrome en escritorio y en un iframe de 390 px, claro y oscuro, sin errores de consola, con la búsqueda fallando y reintentando, y 0 de 34 filas desalineadas en Coto. Falta: verlo en un celu real. (commit pendiente)
+22. [x] **Estilos y diseño responsive** (plan aprobado el 11/11/2026): `web/styles.css` con la paleta "Celeste Rosario" (al principio la de Cloudflare, ver Decisiones), Inter alojada en el sitio, header fijo con pestañas, tarjetas de oferta (foto, precio grande, cartel de descuento, chip de promo), filtros desplegables en el celu y en columna en escritorio, grilla de 2 a 4, paginación con botones, columna de lectura en las páginas de texto, modo oscuro. Íconos y `theme_color` en celeste `#0369A1`. Primera visita: +52 KB (CSS 3 KB + fuente 48 KB, comprimidos). Probado en Chrome: escritorio (oscuro) y 390 px (claro y oscuro, sin scroll horizontal), búsqueda, filtros abiertos, cadena con paginación, preguntas; sin errores de consola; contraste de todos los pares 4,5:1 o más; recorrido automático sin problemas. Después: botón de modo claro/oscuro, "Limpiar filtros", flecha de los combos y limpieza de señales de web vibecodeada (ver Decisiones); probado en Chrome (el tema se guarda al recargar y cambiar de página, limpiar filtros, header de una línea a 360 y 390 px). Después: contraste de bordes de controles, atajos en la búsqueda vacía, diseño de preguntas, términos y privacidad, y el botón de instalar ya no dice "¡Instalá la app !" con espacio (ver Decisiones); probado en Chrome en claro y oscuro, escritorio y 390 px, sin scroll horizontal ni errores de consola, con los conteos de los atajos iguales a los resultados de la búsqueda. Después: arreglos de la revisión de diseño (ver Decisiones, 11/11/2026: precio por unidad, portada de 8 por cadena, relevancia, reintento, accesibilidad, historial); probado en Chrome en escritorio y en un iframe de 390 px, claro y oscuro, sin errores de consola, con la búsqueda fallando y reintentando, y 0 de 34 filas desalineadas en Coto. Falta: verlo en un celu real. (`ceb0b81`, `3500fc3`)
 
 ## Lanzamiento (cuando el MVP esté terminado)
 
@@ -220,10 +222,10 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 - [ ] **Antes de hacer público el repo, limpiar el historial**: la dirección personal que figuraba como sucursal de DAR está en `config/stores.toml` y en `data/offers/dar.json` de los commits viejos (desde `c65fdc1`). Opciones: reescribir el historial con `git filter-repo` y force-push (lo corre el mantenedor a mano), o publicar un repo nuevo sin historial. Revisar también que no haya otros datos personales (`git log -p -S "<texto>"`).
 - [ ] Hacer público el repo.
-- [ ] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios).
+- [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (commit pendiente)
 - [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR).
 - [ ] Sacar el primer tag de release (`v0.1.0`).
-- [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web.
+- [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web. Preparado (commit pendiente): el pie muestra "Código fuente" cuando `repo` de `config/site.toml` tiene valor, y el User-Agent nuevo está comentado en `config/stores.toml`. Quedan vacíos hasta que el repo sea público, porque el sitio se publica solo y el link daría 404. Al lanzar: completar `repo`, cambiar el User-Agent y actualizar `docs/context.md`.
 
 ## Pendientes y dudas abiertas
 
@@ -254,6 +256,8 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `3500fc3` | 11/11/2026 | Arreglos de la revisión de diseño. |
+| `ceb0b81` | 11/11/2026 | Estilos con la paleta Celeste Rosario, atajos en la búsqueda, rediseño de preguntas, términos y privacidad, íconos SVG, botón para volver arriba, paginado y filtros. |
 | `d648065` | 11/11/2026 | Decisión de costo cero en Cloudflare (comentario en `wrangler.jsonc`) y hashes en STATUS. |
 | `cc9992b` | 11/11/2026 | Fotos de Carrefour y Coto desde sus servidores; Privacidad y Términos actualizados. |
 | `146bf66` | 11/11/2026 | Botón de instalar en el header, aclaración por cadena de cómo ver el mismo precio, descuento truncado, testeo de punta a punta. |

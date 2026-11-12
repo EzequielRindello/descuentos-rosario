@@ -28,6 +28,7 @@ Los precios salen de las webs públicas de cada cadena y pueden no coincidir con
 
 ## Para quien quiera colaborar
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): cómo correrlo, cómo sumar una cadena y las reglas de cortesía con los sitios.
 - [`STATUS.md`](STATUS.md): en qué estado está el proyecto y qué falta.
 - [`docs/context.md`](docs/context.md): cómo se lee cada supermercado.
 - [`config/stores.toml`](config/stores.toml): las sucursales. Se puede corregir con un PR sin saber programar.

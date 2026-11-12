@@ -58,7 +58,7 @@
 <div class="footer-inner">
 <p>Ofertas actualizadas el {{ updated }}. Los precios salen de las webs de cada cadena y pueden no coincidir con el de la góndola. Revisá siempre en el súper antes de comprar.</p>
 <p>{{ site.name }} es un proyecto independiente y de código abierto, sin relación con las cadenas. Los datos del día se pueden descargar en <a href="/datos/">Datos abiertos</a>.</p>
-<p class="footer-links"><a href="/preguntas-frecuentes/">Preguntas frecuentes</a> <a href="/terminos/">Términos y aviso legal</a> <a href="/privacidad/">Privacidad</a></p>
+<p class="footer-links"><a href="/preguntas-frecuentes/">Preguntas frecuentes</a> <a href="/terminos/">Términos y aviso legal</a> <a href="/privacidad/">Privacidad</a>{% if site.repo %} <a href="{{ site.repo }}">Código fuente</a>{% endif %}</p>
 </div>
 </footer>
 <button type="button" id="arriba" class="to-top" title="Volver arriba" hidden>{{ icon.arrow_up() }}<span class="visually-hidden">Volver arriba</span></button>

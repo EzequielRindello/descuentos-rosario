@@ -15,3 +15,7 @@ home_per_chain = 6
 
 # Mail de contacto (se muestra en preguntas frecuentes, términos y privacidad). Vacío = no se muestra.
 contact = "rindello14@gmail.com"
+
+# URL del repo (se muestra en el pie como "Código fuente"). Vacío = no se muestra.
+# Completar al hacer público el repo: https://github.com/EzequielRindello/descuentos-rosario
+repo = ""
