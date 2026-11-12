@@ -196,7 +196,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
 5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
 6. [x] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11 completa: las tres cadenas responden desde GitHub, deploy y commit de `data/` andan (`c287d33`). Cron confirmado: el `schedule` disparó solo el 11/11/2026 (run `43069628912`, commit `11906ee`), con horas de atraso.
 7. [x] **Control de caídas**: 0 ofertas = error (al principio era "menos de la mitad que ayer"); el workflow abre un issue si alguna cadena falla. (`c2bbbf9`, ajustado después)
-8. [x] **README**: cómo instalarla en el celu y datos abiertos, hecho (`085a52f`). Capturas en `docs/capturas/` (12/11/2026): búsqueda en escritorio a 1280 px en claro, portada en el celu en claro y Coto en el celu en oscuro, a 390 px. Sacadas con Chrome del build local con los datos del 12/11, iguales a los publicados (producción no deja meterse en un iframe). (commit pendiente)
+8. [x] **README**: cómo instalarla en el celu y datos abiertos, hecho (`085a52f`). Capturas en `docs/capturas/` (12/11/2026): búsqueda en escritorio a 1280 px en claro, portada en el celu en claro y Coto en el celu en oscuro, a 390 px. Sacadas con Chrome del build local con los datos del 12/11, iguales a los publicados (producción no deja meterse en un iframe). (`1f55d8b`)
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console (propiedad "Prefijo de URL", verificación por archivo HTML en `web/`) y Bing Webmaster (importar desde Google). **Esperar** a la revisión de términos de las cadenas y al dominio propio.
 10. [x] **Páginas legales e informativas**: `/preguntas-frecuentes/`, `/terminos/` (aviso legal: sin relación con las cadenas, precios informativos, sin garantías, cómo se leen los datos, pedidos de retiro, ley argentina) y `/privacidad/` (sin cookies ni analítica; verificado que Cloudflare no pone cookies). Links en el pie y en el sitemap. 404 verificado en producción. (`f6dc91a`, `71ce648`)
 11. [x] **Canal de contacto**: un mail en `contact` de `config/site.toml`, con link `mailto:` en preguntas, términos y privacidad. Sirve para los pedidos de corrección o retiro de las cadenas. (`f6dc91a`, `71ce648`)
@@ -268,6 +268,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `1f55d8b` | 12/11/2026 | Capturas en el README, headers y CSP verificados en producción, decisiones sobre el bot y el historial, pasos para limpiar el historial. |
 | `2e8c483` | 12/11/2026 | `CONTRIBUTING.md`, link al repo en el pie (vacío hasta el lanzamiento), User-Agent de lanzamiento comentado, cron confirmado en STATUS. |
 | `3500fc3` | 11/11/2026 | Arreglos de la revisión de diseño. |
 | `ceb0b81` | 11/11/2026 | Estilos con la paleta Celeste Rosario, atajos en la búsqueda, rediseño de preguntas, términos y privacidad, íconos SVG, botón para volver arriba, paginado y filtros. |
