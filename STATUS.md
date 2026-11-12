@@ -182,6 +182,8 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | "Probá con" pasa de 8 a 19 palabras, ordenadas como la canasta básica: yerba, leche, carne, huevos, fideos, arroz, harina, azúcar, aceite, queso, galletitas, café, gaseosa, cerveza, papel higiénico, detergente, pañales, alimento para perro y alimento para gato. El conteo usa la misma regla que la búsqueda (todas las palabras, en cualquier orden: `matches_search`), así sirven las frases. Quedan afuera "pan", "vino", "pollo" y "té" | Pedido del mantenedor: sumar lo que más se consume en Argentina, incluida la comida para mascotas. Esas cuatro coinciden por texto con otros productos ("panales", "vinagre", alimento para perro sabor pollo, casi cualquier nombre con "te"). Verificado en Chrome: los 19 conteos coinciden con los resultados de la búsqueda. |
 | 11/11/2026 | Portada en escritorio: la columna de filtros queda fija a la izquierda y todo lo demás (atajos o resultados, guardados, mejores ofertas, cómo funciona) va a la derecha. En el celu no cambia | Elegido por el mantenedor entre tres opciones (también: filtros en una barra arriba, o dejarlo). Antes la columna de filtros dejaba un hueco a la derecha del panel de atajos. |
 | 11/11/2026 | Celu: al bajar se esconde la fila de pestañas y queda fija solo la barra con la marca y los botones; al subir vuelven. La fila se desliza por debajo de la barra (el header es transparente y deja pasar los clics), así la página no se mueve. Mismo orden de foco que antes (marca, pestañas, botones) | Elegido por el mantenedor (también: header no fijo, o una fila con menú). El header fijo ocupaba ~95 px de pantalla en el celu. |
+| 12/11/2026 | El bot sigue commiteando `data/` en `main` cuando se proteja: excepción en el ruleset con una deploy key de escritura | Mantiene el workflow y el historial diario en `main` sin otra rama. `GITHUB_TOKEN` no puede ir en la lista de excepciones de un ruleset; una deploy key o una GitHub App sí. |
+| 12/11/2026 | El historial se limpia con `git filter-repo` en vez de publicar un repo nuevo | Conserva el historial de commits y de los datos diarios; solo se reemplaza la dirección. Después del force-push se pide a GitHub Support que purgue los commits viejos. |
 
 ## Próximos pasos
 
@@ -194,14 +196,14 @@ En orden. Cuando cierres una, marcala y poné el commit.
 5. [x] **Deploy**: `npx wrangler@4 deploy` el 11/11/2026, Worker `ofertas-rosario`. URL en `config/site.toml`; todas las rutas responden y Cloudflare comprime (buscar.json: 1,4 MB → 248 KB). (`de3ec79`)
 6. [x] **GitHub Actions**: secrets `CLOUDFLARE_API_TOKEN` (token de cuenta con permiso Account · Workers Scripts · Edit) y `CLOUDFLARE_ACCOUNT_ID` cargados el 11/11/2026. Corrida manual del 11/11 completa: las tres cadenas responden desde GitHub, deploy y commit de `data/` andan (`c287d33`). Cron confirmado: el `schedule` disparó solo el 11/11/2026 (run `43069628912`, commit `11906ee`), con horas de atraso.
 7. [x] **Control de caídas**: 0 ofertas = error (al principio era "menos de la mitad que ayer"); el workflow abre un issue si alguna cadena falla. (`c2bbbf9`, ajustado después)
-8. [ ] **README**: cómo instalarla en el celu y datos abiertos, hecho (`085a52f`). Faltan las capturas, que van después de los estilos.
+8. [x] **README**: cómo instalarla en el celu y datos abiertos, hecho (`085a52f`). Capturas en `docs/capturas/` (12/11/2026): búsqueda en escritorio a 1280 px en claro, portada en el celu en claro y Coto en el celu en oscuro, a 390 px. Sacadas con Chrome del build local con los datos del 12/11, iguales a los publicados (producción no deja meterse en un iframe). (commit pendiente)
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console (propiedad "Prefijo de URL", verificación por archivo HTML en `web/`) y Bing Webmaster (importar desde Google). **Esperar** a la revisión de términos de las cadenas y al dominio propio.
 10. [x] **Páginas legales e informativas**: `/preguntas-frecuentes/`, `/terminos/` (aviso legal: sin relación con las cadenas, precios informativos, sin garantías, cómo se leen los datos, pedidos de retiro, ley argentina) y `/privacidad/` (sin cookies ni analítica; verificado que Cloudflare no pone cookies). Links en el pie y en el sitemap. 404 verificado en producción. (`f6dc91a`, `71ce648`)
 11. [x] **Canal de contacto**: un mail en `contact` de `config/site.toml`, con link `mailto:` en preguntas, términos y privacidad. Sirve para los pedidos de corrección o retiro de las cadenas. (`f6dc91a`, `71ce648`)
 12. [ ] **Revisión legal**: los textos de términos y privacidad los escribió un agente, no un abogado. Que los revise alguien con matrícula antes del lanzamiento, junto con los términos de uso de cada cadena.
 13. [x] **Favicon**: flecha de cursor blanca sobre negro (`web/icons/favicon.svg` + PNG 192/512/maskable). Provisorio hasta los estilos. (`f6dc91a`, `71ce648`)
-14. [x] **Seguridad, arreglos rápidos**: headers en `web/_headers` (CSP que solo permite el propio sitio, `frame-ancestors 'none'`, Permissions-Policy, COOP, HSTS) y links a las cadenas solo si son `https://`. Probado en local con un servidor que aplica `_headers`: sin errores de CSP. Falta verlo en producción. (`f6dc91a`, `71ce648`)
-15. [x] **Seguridad del workflow**: actions fijadas por SHA (`actions/checkout` v7.0.1, que ya corre en Node 24; `dtolnay/rust-toolchain` stable; `Swatinem/rust-cache` v2.9.3), `wrangler@4.155.0` exacto y Dependabot semanal para Cargo y Actions (`.github/dependabot.yml`). `wrangler` se actualiza a mano: Dependabot no ve `npx`. Falta verlo en una corrida real. (`957df38`)
+14. [x] **Seguridad, arreglos rápidos**: headers en `web/_headers` (CSP que solo permite el propio sitio, `frame-ancestors 'none'`, Permissions-Policy, COOP, HSTS) y links a las cadenas solo si son `https://`. Probado en local con un servidor que aplica `_headers`: sin errores de CSP. En producción (12/11/2026): los seis headers llegan en todas las rutas, `sw.js` sin caché, `/datos/` con CORS, sin `Set-Cookie`; en Chrome, portada, búsqueda y página de Carrefour sin errores de consola ni violaciones de CSP, con las fotos de Carrefour y Coto cargando. (`f6dc91a`, `71ce648`)
+15. [x] **Seguridad del workflow**: actions fijadas por SHA (`actions/checkout` v7.0.1, que ya corre en Node 24; `dtolnay/rust-toolchain` stable; `Swatinem/rust-cache` v2.9.3), `wrangler@4.155.0` exacto y Dependabot semanal para Cargo y Actions (`.github/dependabot.yml`). `wrangler` se actualiza a mano: Dependabot no ve `npx`. Visto en corridas reales: cron del 11/11 y manual del 12/11 (run `43223515281`), todos los pasos OK. (`957df38`)
 16. [x] **Datos viejos en caché**: cada página lleva la fecha de sus datos (`body[data-updated]`) y `app.js` la compara con `/datos/actualizado.json`, que el service worker nunca cachea. Avisa "Hay ofertas más nuevas (Recargar)", "Sin conexión: estas ofertas son del DD/MM", o "Todavía no están las ofertas de hoy". Si todo es de hoy, nada. Vuelve a chequear al reconectarse o al volver a la app. Probados los cuatro casos en Chrome. (`0c125e0`)
 17. [x] **Filtros y orden (UX)**: la búsqueda de la portada pasó a "Buscar y filtrar": producto, cadena (casillas), descuento mínimo (10 a 50%), tipo de promo (precio rebajado, 2x1 y 3x2, 2da unidad, llevando varias) y orden (descuento, precio, nombre). Se aplican al cambiar, sin texto también; resultados de a 50 con "Mostrar más"; los filtros quedan en la URL (`/?cadena=coto&min=40`). Cada página de cadena tiene "Filtrar las ofertas de ..." (después: los filtros están en la propia página de cadena, y se sumó el rango de precio). Probado en Chrome, también a 390 px. Por categoría falta guardar la categoría en `Offer` (ver Pendientes). (`4ad3a8f`)
 18. [ ] **Performance**: medido en producción (comprimido): portada 7,5 KB, página de cadena ~11 KB, `app.js` 2,6 KB, `buscar.json` 108 KB (583 KB sin comprimir). Hecho: `buscar.json` ya no se precachea en la primera visita (era ~70% de lo que bajaba); se guarda al buscar por primera vez, y la app instalada lo baja en segundo plano para buscar sin señal. Probado en Chrome: primera visita sin el índice, y búsqueda sin servidor después de haber buscado una vez (`d31eb51`). Falta: medir con Lighthouse (Chrome lo trae en F12 → Lighthouse, sin descargar nada) y probar la app instalada en un celu.
@@ -220,19 +222,28 @@ En orden. Cuando cierres una, marcala y poné el commit.
 
 El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
-- [ ] **Antes de hacer público el repo, limpiar el historial**: la dirección personal que figuraba como sucursal de DAR está en `config/stores.toml` y en `data/offers/dar.json` de los commits viejos (desde `c65fdc1`). Opciones: reescribir el historial con `git filter-repo` y force-push (lo corre el mantenedor a mano), o publicar un repo nuevo sin historial. Revisar también que no haya otros datos personales (`git log -p -S "<texto>"`).
+- [ ] **Antes de hacer público el repo, limpiar el historial** con `git filter-repo` (decidido el 12/11/2026). Revisado el 12/11/2026: la dirección personal que figuraba como sucursal de DAR está en `config/stores.toml`, `docs/brief.md` y `data/offers/dar.json`, desde `c65fdc1` hasta los commits del bot del 11 y 12/11 (en `data/offers/dar.json`). `HEAD` ya está limpio. Los autores usan el mail `noreply` de GitHub; no hay rutas locales; los logs de Actions, el issue #1 y los PRs (ninguno) no la tienen. El mail de contacto de `config/site.toml` queda a propósito: se publica en la web. Todo esto lo corre el mantenedor a mano:
+    1. Elegir un momento fuera de la corrida diaria y pausar el workflow (`gh workflow disable daily.yml`).
+    2. Instalar `git-filter-repo` (en WSL: `sudo apt install git-filter-repo`).
+    3. Clonar de cero en una carpeta aparte (filter-repo pide un clon recién hecho) y correr `git filter-repo --replace-text <archivo>`. El archivo va **fuera del repo** y tiene dos líneas: la sucursal con la dirección `==>DAR`, y la dirección sola `==>(dirección quitada)`.
+    4. Verificar en el clon: buscar la dirección con `git grep -i <calle> $(git rev-list --all)` (no tiene que salir nada) y que la cantidad de commits sea la misma.
+    5. Los hashes cambian todos: pasar los de `STATUS.md` a los nuevos con el mapa que deja filter-repo en `.git/filter-repo/commit-map`, y commitear.
+    6. `git remote add origin <url>` y `git push --force origin main`.
+    7. Pedir a GitHub Support que borre las vistas en caché y los commits viejos: después del force-push siguen abriéndose por su hash. Esperar la confirmación antes de hacer público el repo.
+    8. Volver a clonar la copia de trabajo. **No hacer `git pull` en la copia vieja**: mezclaría el historial viejo y un push lo volvería a subir.
+    9. Reactivar el workflow (`gh workflow enable daily.yml`).
 - [ ] Hacer público el repo.
-- [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (commit pendiente)
-- [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR).
+- [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (`2e8c483`)
+- [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR), con una excepción para el bot de los datos (ver Decisiones, 12/11/2026): crear una deploy key con permiso de escritura, cargar la clave privada como secret, que el `actions/checkout` del workflow la use (`ssh-key`) y sumar la deploy key a la lista de excepciones del ruleset. Probar con una corrida manual que el commit de `data/` entre.
 - [ ] Sacar el primer tag de release (`v0.1.0`).
-- [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web. Preparado (commit pendiente): el pie muestra "Código fuente" cuando `repo` de `config/site.toml` tiene valor, y el User-Agent nuevo está comentado en `config/stores.toml`. Quedan vacíos hasta que el repo sea público, porque el sitio se publica solo y el link daría 404. Al lanzar: completar `repo`, cambiar el User-Agent y actualizar `docs/context.md`.
+- [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web. Preparado (`2e8c483`): el pie muestra "Código fuente" cuando `repo` de `config/site.toml` tiene valor, y el User-Agent nuevo está comentado en `config/stores.toml`. Quedan vacíos hasta que el repo sea público, porque el sitio se publica solo y el link daría 404. Al lanzar: completar `repo`, cambiar el User-Agent y actualizar `docs/context.md`.
 
 ## Pendientes y dudas abiertas
 
 - [ ] Nombre definitivo y dominio propio (opcional, mejor para SEO). Si se cambia, actualizar `url` en `config/site.toml` y el link del README.
-- [ ] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Opciones: permitir el bot en la regla, o mover los datos a una rama `data`.
+- [x] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Decidido el 12/11/2026: excepción para el bot con una deploy key (ver Lanzamiento).
 - [x] Íconos definitivos: flecha blanca sobre celeste `#0369A1` (11/11/2026; antes Tangerine).
-- [ ] Capturas del README (ya se pueden sacar, con los estilos listos).
+- [x] Capturas del README (12/11/2026, ver paso 8).
 - [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
 - [ ] Coto: guardar los descuentos por medio de pago (`product.dtoDescuentosMediosPago`) para la página de bancos.
 - [ ] Coto: confirmar que `sDisp` 1004 = disponible y 1001 = no disponible. Solo existen esos dos valores (36 tiendas en un producto: 30 con 1004, 6 con 1001). La web de Coto no deja elegir sucursal sin cuenta, así que no se pudo confirmar desde la web.
@@ -244,6 +255,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 ## Problemas conocidos
 
 - Si se pushea a `main` mientras corre el workflow, el commit de `data/` del bot es rechazado (pasó el 11/11/2026). La web queda con los datos nuevos, pero el repo no; al día siguiente se compara contra el archivo viejo. No pushear entre las 07:00 y las 07:45, o no disparar el workflow a mano mientras se trabaja.
+- Celu a 390 px: la fila de pestañas se desliza (`overflow-x: auto`) y "Datos abiertos" queda cortada unos píxeles contra el borde, sin pista de que hay más. La página no se desborda. Visto el 12/11/2026, sin tocar.
 - Coto: unas 40 ofertas de "Otras Ofertas" no traen precio regular (`"Precio Contado:"` vacío) y se publican sin descuento.
 
 - En el navegador (sin instalar la app), la búsqueda sin señal solo anda si antes se buscó algo con conexión: el índice se guarda la primera vez que se usa.
@@ -256,6 +268,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `2e8c483` | 12/11/2026 | `CONTRIBUTING.md`, link al repo en el pie (vacío hasta el lanzamiento), User-Agent de lanzamiento comentado, cron confirmado en STATUS. |
 | `3500fc3` | 11/11/2026 | Arreglos de la revisión de diseño. |
 | `ceb0b81` | 11/11/2026 | Estilos con la paleta Celeste Rosario, atajos en la búsqueda, rediseño de preguntas, términos y privacidad, íconos SVG, botón para volver arriba, paginado y filtros. |
 | `d648065` | 11/11/2026 | Decisión de costo cero en Cloudflare (comentario en `wrangler.jsonc`) y hashes en STATUS. |

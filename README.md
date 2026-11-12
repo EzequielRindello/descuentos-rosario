@@ -11,6 +11,13 @@ Todas las mañanas se revisan las webs de **Coto**, **Carrefour** y **DAR** y se
 
 **👉 [ofertas-rosario.rindelloezequiel.workers.dev](https://ofertas-rosario.rindelloezequiel.workers.dev)** (en construcción)
 
+![Buscando "leche" en la computadora: filtros a la izquierda y tarjetas con precio de oferta, precio anterior y descuento](docs/capturas/escritorio.png)
+
+<p>
+<img src="docs/capturas/celu-claro.png" width="260" alt="Portada en el celu, modo claro: búsqueda y atajos a las ofertas de 50%, 40%, 2x1 y segunda unidad">
+<img src="docs/capturas/celu-oscuro.png" width="260" alt="Ofertas de Coto en el celu, modo oscuro">
+</p>
+
 ## Instalala en el celu
 
 No hace falta ninguna tienda de apps.
