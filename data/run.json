@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-13T14:30:17-03:00",
+  "generated_at": "2026-11-13T17:20:21-03:00",
   "chains": {
     "carrefour": {
       "ok": true,
@@ -14,10 +14,10 @@
       "error": null
     },
     "dar": {
-      "ok": false,
-      "offers": 0,
-      "seconds": 101,
-      "error": "error sending request for url (https://www.darentucasa.com.ar/index.asp): client error (Connect): tcp connect error: Connection timed out (os error 110)"
+      "ok": true,
+      "offers": 300,
+      "seconds": 22,
+      "error": null
     }
   }
 }
