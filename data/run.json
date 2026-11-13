@@ -1,23 +1,23 @@
 {
-  "generated_at": "2026-11-13T13:52:47-03:00",
+  "generated_at": "2026-11-13T14:30:17-03:00",
   "chains": {
     "carrefour": {
       "ok": true,
-      "offers": 2028,
-      "seconds": 167,
+      "offers": 2031,
+      "seconds": 150,
       "error": null
     },
     "coto": {
       "ok": true,
       "offers": 4957,
-      "seconds": 145,
+      "seconds": 151,
       "error": null
     },
     "dar": {
-      "ok": true,
-      "offers": 281,
-      "seconds": 24,
-      "error": null
+      "ok": false,
+      "offers": 0,
+      "seconds": 101,
+      "error": "error sending request for url (https://www.darentucasa.com.ar/index.asp): client error (Connect): tcp connect error: Connection timed out (os error 110)"
     }
   }
 }
