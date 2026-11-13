@@ -34,7 +34,7 @@ Primera corrida por cron (11/11/2026, run `43069628912`, evento `schedule`, con 
 
 Issue #2 (13/11/2026, run `43472763377`): DAR no respondió desde el runner (`tcp connect error: Connection timed out` en los 3 intentos, en 2 minutos). 40 minutos antes había andado desde GitHub y desde local respondía bien: fue un corte del sitio, no del scraper. Con los scrapes separados, una cadena que falla se vuelve a correr sola antes de publicar.
 
-**Próximo paso:** lo que falta para el lanzamiento (ver "Lanzamiento" más abajo).
+**Lanzado el 13/11/2026 (`v0.1.0`):** repo público y sitio en producción. **Próximo paso:** las features de "Próximas releases", cuando el mantenedor las pida.
 
 ## Cómo hacer la corrida del día
 
@@ -245,10 +245,10 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
     7. Pedir a GitHub Support que borre las vistas en caché y los commits viejos: después del force-push siguen abriéndose por su hash. Esperar la confirmación antes de hacer público el repo.
     8. Volver a clonar la copia de trabajo. **No hacer `git pull` en la copia vieja**: mezclaría el historial viejo y un push lo volvería a subir.
     9. Recién ahí volver a correr los workflows.
-- [ ] Hacer público el repo.
+- [x] Hacer público el repo (13/11/2026). Publicar después (run `43504416602`): términos nuevos y link "Código fuente" en producción.
 - [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (`e1b25e4`)
 - [x] ~~Crear la rama `development` y proteger `main`~~. Descartado el 13/11/2026 (ver Decisiones): el mantenedor es el único con permiso de escritura, así que nadie más puede pushear ni mergear a `main`. Si algún día se suma un colaborador con escritura, retomar: ruleset en `main` y deploy key de escritura para el bot (`ssh-key` en el `actions/checkout` de `scrape.yml`, y la key en las excepciones del ruleset).
-- [ ] Sacar el primer tag de release (`v0.1.0`).
+- [x] Sacar el primer tag de release (`v0.1.0`, 13/11/2026).
 - [x] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web (`repo` de `config/site.toml`), y actualizar `docs/context.md`. Hecho el 13/11/2026. El link del pie aparece en el primer Publicar después de hacer público el repo.
 
 ## Próximas releases (después del lanzamiento)
@@ -292,6 +292,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `e8bdc6e` | 13/11/2026 | `main` sin protección (decisión) y hash del lanzamiento. |
 | `cf1c804` | 13/11/2026 | Lanzamiento: términos y privacidad reforzados, sin promesas de horario, URL del repo en el pie y en el User-Agent, fuentes de promos bancarias y próximas releases. |
 | `42810c4` | 13/11/2026 | Sin cron: un workflow de scrape por cadena y uno de deploy, todos a mano. |
 | `3fea2c5` | 12/11/2026 | Capturas en el README, headers y CSP verificados en producción, decisiones sobre el bot y el historial, pasos para limpiar el historial. |
