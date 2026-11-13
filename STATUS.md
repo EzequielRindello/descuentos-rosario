@@ -24,33 +24,41 @@ Documentos:
 
 Hecho: los scrapers de las tres cadenas andan y el sitio estático se genera completo (HTML con las ofertas, SEO, PWA instalable y offline, búsqueda y guardados). Probado en local con Chrome. Última corrida (10/11/2026): Carrefour 1.643 ofertas, Coto 4.766 (solo súper), DAR 280.
 
-Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers). Los secrets de Cloudflare están cargados en GitHub y el workflow diario está activo.
+Publicado el 11/11/2026 en **https://ofertas-rosario.rindelloezequiel.workers.dev** (Cloudflare Workers). Los secrets de Cloudflare están cargados en GitHub. Desde el 13/11/2026 no hay cron: el mantenedor corre a mano un scrape por cadena y después el deploy (ver "Cómo hacer la corrida del día").
 
 Primera corrida en GitHub (a mano, 11/11/2026, run `43022603196`): las tres cadenas respondieron desde Actions (no hay bloqueo por IP) y el deploy anduvo. Falló en dos cosas: el control de caídas frenó a Coto (que había terminado sus promos de verdad) y el push de `data/` fue rechazado porque se pusheó otro commit mientras corría. Las dos están en Decisiones y Problemas conocidos. Los datos se verificaron a mano contra cada sitio (Carrefour 15/15, Coto 25/25 más 12 ofertas terminadas, DAR 7/7).
 
 Segunda corrida manual (11/11/2026, run `43030708828`, con `a984748`): todo OK. Carrefour 1.616, Coto 1.114, DAR 287; deploy y commit de `data/` (`5bbbda0`) funcionaron. Issue #1 cerrado.
 
-Primera corrida por cron (11/11/2026, run `43069628912`, evento `schedule`, con `a7d9ad0`): todo OK, deploy y commit de `data/` (`e015605`). Arrancó a las 14:35 en vez de las 07:00: GitHub atrasa los workflows programados cuando tiene carga (el 12/11 a las 10:00 todavía no había corrido). Un push a `main` no publica: el código nuevo sale en la próxima corrida.
+Primera corrida por cron (11/11/2026, run `43069628912`, evento `schedule`, con `a7d9ad0`): todo OK, deploy y commit de `data/` (`e015605`). Arrancó a las 14:35 en vez de las 07:00, y el 12/11 y el 13/11 lo mismo (14:48 y 14:26): GitHub disparó el evento 7 horas y media tarde los tres días. Por eso se sacó el cron (ver Decisiones, 13/11/2026). Un push a `main` no publica: el código nuevo sale en el próximo deploy.
+
+Issue #2 (13/11/2026, run `43472763377`): DAR no respondió desde el runner (`tcp connect error: Connection timed out` en los 3 intentos, en 2 minutos). 40 minutos antes había andado desde GitHub y desde local respondía bien: fue un corte del sitio, no del scraper. Con los scrapes separados, una cadena que falla se vuelve a correr sola antes de publicar.
 
 **Próximo paso:** lo que falta para el lanzamiento (ver "Lanzamiento" más abajo).
 
-## Cómo revisar la corrida diaria
+## Cómo hacer la corrida del día
 
-El workflow (`.github/workflows/daily.yml`) corre todos los días a las 07:00 de Argentina (GitHub puede demorarlo 5 a 30 minutos): tests, scrape, build, `wrangler deploy`, commit de `data/` en `main` ("data: ofertas del DD/MM/AAAA") e issue en GitHub si alguna cadena falló.
+Todo se corre a mano desde la pestaña Actions de GitHub (botón "Run workflow"), sin cron:
+
+1. **Scrape Carrefour**, **Scrape Coto** y **Scrape DAR** (`scrape-<cadena>.yml`). Se pueden correr a la vez. Cada uno corre los tests, scrapea su cadena, commitea `data/offers/<cadena>.json` y su línea de `data/run.json` en `main` ("data: ofertas de <cadena> del DD/MM/AAAA") y abre un issue si falló. No publican nada. La lógica común está en `scrape.yml`.
+2. Si alguno falló, se puede volver a correr solo ese.
+3. Cuando los tres están bien, **Publicar** (`deploy.yml`): genera el sitio con los datos de `main` y hace `wrangler deploy`. Una cadena cuyo último scrape falló sale sin ofertas, nunca con las de otro día.
 
 ```bash
-gh run list --workflow daily.yml --limit 5     # ¿corrió? ¿terminó bien?
+gh workflow run scrape-dar.yml                 # lo mismo que el botón (commitea de verdad)
+gh workflow run deploy.yml                     # publica de verdad
+gh run list --limit 8                          # ¿terminaron bien?
 gh run view <id> --log-failed                  # si falló, qué paso falló
-gh issue list                                  # issues "Falló el scrape del ..." que abre el workflow
-git pull                                       # traer el commit de data/ que hizo el bot
-cat data/run.json                              # ofertas y error por cadena de la última corrida
+gh issue list                                  # issues "Falló el scrape de <cadena> del ..."
+git pull                                       # traer los commits de data/ que hizo el bot
+cat data/run.json                              # ofertas y error por cadena del último scrape de cada una
 ```
 
 También se ve en la web: el pie de cada página dice "Ofertas actualizadas el ...".
 
 Si una cadena falla solo desde GitHub (anda en local y no en Actions), lo más probable es un bloqueo por IP. No disfrazar el User-Agent ni saltear protecciones (ver reglas en `AGENTS.md`): anotarlo acá y discutir alternativas con el mantenedor.
 
-Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y commitea de verdad; pedir OK al mantenedor antes).
+Un agente no dispara estos workflows sin OK del mantenedor.
 
 ## Estado por componente
 
@@ -71,7 +79,7 @@ Para correrlo a mano sin esperar al cron: `gh workflow run daily.yml` (publica y
 | Estilos | ✅ Paleta "Celeste Rosario", Inter, celu primero, grilla en escritorio, modo oscuro según el dispositivo | `web/styles.css`, `web/fonts/` |
 | Páginas legales | ✅ Preguntas frecuentes, términos y privacidad. Falta el canal de contacto y la revisión legal | `templates/preguntas.html`, `terminos.html`, `privacidad.html` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
-| GitHub Actions diario | ✅ Corrida manual y por cron OK (11/11). El cron puede salir con horas de atraso | `.github/workflows/daily.yml` |
+| GitHub Actions | ⏳ Un scrape por cadena y un deploy, a mano (13/11). Falta la primera corrida | `.github/workflows/scrape*.yml`, `deploy.yml` |
 | README para usuarios | ✅ Link, cómo instalarla y datos abiertos. Las capturas van después de los estilos | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
@@ -89,7 +97,7 @@ python -m http.server 8787 --directory dist    # verlo en http://127.0.0.1:8787 
 npx wrangler@4.155.0 deploy                     # publicar dist/ en Cloudflare (requiere `npx wrangler@4.155.0 login`)
 ```
 
-El bot de GitHub Actions commitea `data/` en `main` todos los días: hacé `git pull` antes de trabajar.
+El bot de GitHub Actions commitea `data/` en `main` cada vez que corre un scrape: hacé `git pull` antes de trabajar.
 
 Cerrá el servidor local antes de volver a hacer `build`: en Windows deja `dist/` tomado y el build falla con "Permission denied".
 
@@ -184,6 +192,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Celu: al bajar se esconde la fila de pestañas y queda fija solo la barra con la marca y los botones; al subir vuelven. La fila se desliza por debajo de la barra (el header es transparente y deja pasar los clics), así la página no se mueve. Mismo orden de foco que antes (marca, pestañas, botones) | Elegido por el mantenedor (también: header no fijo, o una fila con menú). El header fijo ocupaba ~95 px de pantalla en el celu. |
 | 12/11/2026 | El bot sigue commiteando `data/` en `main` cuando se proteja: excepción en el ruleset con una deploy key de escritura | Mantiene el workflow y el historial diario en `main` sin otra rama. `GITHUB_TOKEN` no puede ir en la lista de excepciones de un ruleset; una deploy key o una GitHub App sí. |
 | 12/11/2026 | El historial se limpia con `git filter-repo` en vez de publicar un repo nuevo | Conserva el historial de commits y de los datos diarios; solo se reemplaza la dirección. Después del force-push se pide a GitHub Support que purgue los commits viejos. |
+| 13/11/2026 | Sin cron: `daily.yml` se reemplaza por tres workflows de scrape, uno por cadena, y uno de deploy, todos a mano. Los scrapes commitean su archivo y su línea de `run.json` (con reintento del push, porque pueden correr a la vez) y el deploy publica lo que hay en `main` | El cron `0 10 * * *` salió 7 horas y media tarde los tres días (11, 12 y 13/11). Si no corre a horario, no sirve automatizado. Separado, una cadena caída (issue #2, DAR) se vuelve a correr sola y se publica recién cuando las tres están bien. Reemplaza la decisión del 10/11 de correr todo junto y a diario. |
 
 ## Próximos pasos
 
@@ -223,7 +232,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
 El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 - [ ] **Antes de hacer público el repo, limpiar el historial** con `git filter-repo` (decidido el 12/11/2026). Revisado el 12/11/2026: la dirección personal que figuraba como sucursal de DAR está en `config/stores.toml`, `docs/brief.md` y `data/offers/dar.json`, desde `c24cf42` hasta los commits del bot del 11 y 12/11 (en `data/offers/dar.json`). `HEAD` ya está limpio. Los autores usan el mail `noreply` de GitHub; no hay rutas locales; los logs de Actions, el issue #1 y los PRs (ninguno) no la tienen. El mail de contacto de `config/site.toml` queda a propósito: se publica en la web. Todo esto lo corre el mantenedor a mano:
-    1. Elegir un momento fuera de la corrida diaria y pausar el workflow (`gh workflow disable daily.yml`).
+    1. Elegir un momento en que no esté corriendo ningún workflow y no disparar ninguno hasta terminar.
     2. Instalar `git-filter-repo` (en WSL: `sudo apt install git-filter-repo`).
     3. Clonar de cero en una carpeta aparte (filter-repo pide un clon recién hecho) y correr `git filter-repo --replace-text <archivo>`. El archivo va **fuera del repo** y tiene dos líneas: la sucursal con la dirección `==>DAR`, y la dirección sola `==>(dirección quitada)`.
     4. Verificar en el clon: buscar la dirección con `git grep -i <calle> $(git rev-list --all)` (no tiene que salir nada) y que la cantidad de commits sea la misma.
@@ -231,10 +240,10 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
     6. `git remote add origin <url>` y `git push --force origin main`.
     7. Pedir a GitHub Support que borre las vistas en caché y los commits viejos: después del force-push siguen abriéndose por su hash. Esperar la confirmación antes de hacer público el repo.
     8. Volver a clonar la copia de trabajo. **No hacer `git pull` en la copia vieja**: mezclaría el historial viejo y un push lo volvería a subir.
-    9. Reactivar el workflow (`gh workflow enable daily.yml`).
+    9. Recién ahí volver a correr los workflows.
 - [ ] Hacer público el repo.
 - [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (`e1b25e4`)
-- [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR), con una excepción para el bot de los datos (ver Decisiones, 12/11/2026): crear una deploy key con permiso de escritura, cargar la clave privada como secret, que el `actions/checkout` del workflow la use (`ssh-key`) y sumar la deploy key a la lista de excepciones del ruleset. Probar con una corrida manual que el commit de `data/` entre.
+- [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR), con una excepción para el bot de los datos (ver Decisiones, 12/11/2026): crear una deploy key con permiso de escritura, cargar la clave privada como secret, que el `actions/checkout` de `scrape.yml` la use (`ssh-key`) y sumar la deploy key a la lista de excepciones del ruleset. Probar con una corrida manual que el commit de `data/` entre.
 - [ ] Sacar el primer tag de release (`v0.1.0`).
 - [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web. Preparado (`e1b25e4`): el pie muestra "Código fuente" cuando `repo` de `config/site.toml` tiene valor, y el User-Agent nuevo está comentado en `config/stores.toml`. Quedan vacíos hasta que el repo sea público, porque el sitio se publica solo y el link daría 404. Al lanzar: completar `repo`, cambiar el User-Agent y actualizar `docs/context.md`.
 
@@ -254,7 +263,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 ## Problemas conocidos
 
-- Si se pushea a `main` mientras corre el workflow, el commit de `data/` del bot es rechazado (pasó el 11/11/2026). La web queda con los datos nuevos, pero el repo no; al día siguiente se compara contra el archivo viejo. No pushear entre las 07:00 y las 07:45, o no disparar el workflow a mano mientras se trabaja.
+- Si se pushea a `main` mientras corre un scrape, el push del bot se rechaza (pasó el 11/11/2026 con `daily.yml`). Desde el 13/11 el scrape reintenta hasta 5 veces sobre el `main` nuevo, así que solo falla si el push choca todas las veces. Aun así, conviene no pushear mientras corren.
 - Celu a 390 px: la fila de pestañas se desliza (`overflow-x: auto`) y "Datos abiertos" queda cortada unos píxeles contra el borde, sin pista de que hay más. La página no se desborda. Visto el 12/11/2026, sin tocar.
 - Coto: unas 40 ofertas de "Otras Ofertas" no traen precio regular (`"Precio Contado:"` vacío) y se publican sin descuento.
 

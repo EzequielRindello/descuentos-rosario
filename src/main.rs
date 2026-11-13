@@ -109,7 +109,8 @@ async fn scrape(args: Args) -> Result<()> {
                 ChainReport { ok: true, offers: offers.len(), seconds, error: None }
             }
             Err(error) => {
-                // Keep yesterday's file so the site still has data; the error is in run.json.
+                // Keep the previous file (check_volume compares against it). run.json marks the chain
+                // as failed, so the site publishes it with no offers until a scrape works again.
                 tracing::error!("{}: failed after {seconds}s: {error:#}", chain.id());
                 ChainReport { ok: false, offers: 0, seconds, error: Some(format!("{error:#}")) }
             }

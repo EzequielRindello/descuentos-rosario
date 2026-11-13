@@ -1,0 +1,15 @@
+# Se corre a mano desde Actions. Scrapea DAR y guarda los datos; no publica (eso es deploy.yml).
+name: Scrape DAR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      chain: dar

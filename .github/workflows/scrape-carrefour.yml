@@ -1,0 +1,15 @@
+# Se corre a mano desde Actions. Scrapea Carrefour y guarda los datos; no publica (eso es deploy.yml).
+name: Scrape Carrefour
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      chain: carrefour

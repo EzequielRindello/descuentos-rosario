@@ -8,7 +8,7 @@ Antes de hacer cualquier cosa, leé `STATUS.md` (estado, decisiones, tareas) y `
 - Todo en español (docs, web, README), menos el código (identificadores y comentarios en inglés).
 - Estilos: la paleta ("Celeste Rosario": celeste, rojo y amarillo) y la tipografía (Inter, alojada en el sitio) están en `web/styles.css`. No sumar colores, fuentes ni recursos externos sin pedirlo. Texto blanco sobre celeste y rojo, casi negro sobre amarillo; todo texto 4,5:1 y todo borde de control 3:1, en los dos temas.
 - Comandos para compilar, testear y scrapear: sección "Cómo correrlo" de `STATUS.md`.
-- Un bot commitea `data/` en `main` todos los días: hacé `git pull` antes de empezar. No edites `data/` a mano.
-- Publicar (`wrangler deploy`), disparar el workflow o tocar secrets de GitHub/Cloudflare: pedir OK antes.
+- Un bot commitea `data/` en `main` cada vez que se corre un scrape: hacé `git pull` antes de empezar. No edites `data/` a mano.
+- Publicar (`wrangler deploy`), disparar un workflow o tocar secrets de GitHub/Cloudflare: pedir OK antes.
 - Cortesía con los sitios: User-Agent identificable, respetar `robots.txt`, nunca hacerse pasar por un navegador ni usar keys sacadas de las páginas.
 - Sin rutas locales ni datos personales en el repo: hoy es privado, pero se hace público al lanzar el MVP.

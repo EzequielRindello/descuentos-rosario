@@ -13,7 +13,7 @@ Referencia técnica del proyecto: stack, reglas y cómo se lee cada fuente. Dón
 | Frontend | HTML generado por Rust + JS plano, sin framework ni bundler |
 | PWA | `manifest.webmanifest` + `sw.js` |
 | Hosting | Cloudflare Workers con static assets, `wrangler deploy` |
-| Corrida diaria | GitHub Actions con cron: scrapea, genera `dist/`, hace `wrangler deploy` con token de API y commitea `data/` |
+| Corrida diaria | GitHub Actions a mano, sin cron: un workflow de scrape por cadena (`scrape-<cadena>.yml`, commitea su archivo de `data/`) y uno de deploy (`deploy.yml`: genera `dist/` y hace `wrangler deploy` con token de API) |
 | Tests | `cargo test` con respuestas de muestra guardadas |
 
 Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, WSL. Los comandos están en `STATUS.md`.

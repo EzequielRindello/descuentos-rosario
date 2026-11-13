@@ -21,7 +21,7 @@ cargo run --release -- build                   # generar el sitio en dist/ a par
 python -m http.server 8787 --directory dist    # verlo en http://127.0.0.1:8787
 ```
 
-Para trabajar en la web no hace falta scrapear: `build` usa los datos que ya están en `data/`. Si scrapeaste para probar, no incluyas `data/` en el pull request: esa carpeta la actualiza un bot todos los días.
+Para trabajar en la web no hace falta scrapear: `build` usa los datos que ya están en `data/`. Si scrapeaste para probar, no incluyas `data/` en el pull request: esa carpeta la actualiza un bot.
 
 ## Reglas de cortesía con los sitios
 

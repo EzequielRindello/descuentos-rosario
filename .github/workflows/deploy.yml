@@ -1,0 +1,41 @@
+# Se corre a mano desde Actions, después de los tres scrapes: genera el sitio con los datos de main
+# y lo publica en Cloudflare. Una cadena cuyo último scrape falló sale sin ofertas.
+# Secrets necesarios: CLOUDFLARE_API_TOKEN (permiso "Workers Scripts: Edit") y CLOUDFLARE_ACCOUNT_ID.
+name: Publicar
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Actions pinned by commit SHA (a moved tag can't change what runs here); Dependabot bumps them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: ofertas
+
+      - name: Datos que se publican
+        run: cat data/run.json
+
+      - name: Generar sitio
+        run: cargo run --release -- build
+
+      - name: Publicar en Cloudflare
+        # Exact version: this step holds the Cloudflare token. Bump by hand (Dependabot can't see npx).
+        run: npx --yes wrangler@4.155.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

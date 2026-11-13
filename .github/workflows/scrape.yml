@@ -1,0 +1,91 @@
+# Plantilla que usan scrape-carrefour.yml, scrape-coto.yml y scrape-dar.yml (no se corre sola).
+# Scrapea una cadena, guarda sus datos en el repo y abre un issue si falló. No publica: eso es deploy.yml.
+name: Scrape (plantilla)
+
+on:
+  workflow_call:
+    inputs:
+      chain:
+        description: "carrefour, coto o dar"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The same chain twice waits in line; different chains run in parallel.
+    concurrency:
+      group: scrape-${{ inputs.chain }}
+      cancel-in-progress: false
+    env:
+      CHAIN: ${{ inputs.chain }}
+    steps:
+      # Actions pinned by commit SHA (a moved tag can't change what runs here); Dependabot bumps them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: ofertas
+
+      - name: Tests
+        id: tests
+        run: cargo test --release
+
+      # If the chain fails, scrape exits with an error, but run.json still records the failure:
+      # it is saved below so the next deploy publishes this chain empty, never with old offers.
+      - name: Scrape
+        id: scrape
+        run: cargo run --release -- scrape --only "$CHAIN"
+
+      # The three chain workflows can run at the same time, so the push retries on top of the
+      # latest main. Only this chain's file is committed, and run.json is rebuilt from main's copy
+      # plus this chain's entry, so another chain's result is never overwritten.
+      - name: Guardar datos
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp data/run.json "$RUNNER_TEMP/run.json"
+          day=$(TZ=America/Argentina/Buenos_Aires date +%d/%m/%Y)
+          for attempt in 1 2 3 4 5; do
+            git fetch -q origin main
+            git reset -q origin/main
+            git show origin/main:data/run.json \
+              | jq --arg c "$CHAIN" --slurpfile ours "$RUNNER_TEMP/run.json" \
+                  '.generated_at = $ours[0].generated_at | .chains[$c] = $ours[0].chains[$c]' \
+              > data/run.json
+            git add "data/offers/$CHAIN.json" data/run.json
+            if git diff --cached --quiet; then
+              echo "Sin cambios en los datos."
+              exit 0
+            fi
+            git commit -q -m "data: ofertas de $CHAIN del $day"
+            if git push -q origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rechazado (intento $attempt), reintento sobre el main nuevo."
+            sleep $((attempt * 5))
+          done
+          echo "No se pudo pushear después de 5 intentos." >&2
+          exit 1
+
+      # Only when the scrape ran: otherwise run.json is main's copy and would report an old error.
+      - name: Avisar si falló
+        if: ${{ always() && steps.scrape.outcome != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f data/run.json ] || exit 0
+          error=$(jq -r --arg c "$CHAIN" '.chains[$c] | select(.ok == false) | .error' data/run.json)
+          if [ -n "$error" ]; then
+            gh issue create \
+              --title "Falló el scrape de $CHAIN del $(TZ=America/Argentina/Buenos_Aires date +%d/%m/%Y)" \
+              --body "$(printf 'Error en la corrida %s:\n\n%s\n\nSi se publica así, %s sale sin ofertas (nunca con las de otro día). Se puede volver a correr el scrape de %s antes de publicar.' "$GITHUB_RUN_ID" "$error" "$CHAIN" "$CHAIN")"
+          fi
