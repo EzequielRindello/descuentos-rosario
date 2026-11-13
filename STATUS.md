@@ -192,6 +192,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Celu: al bajar se esconde la fila de pestañas y queda fija solo la barra con la marca y los botones; al subir vuelven. La fila se desliza por debajo de la barra (el header es transparente y deja pasar los clics), así la página no se mueve. Mismo orden de foco que antes (marca, pestañas, botones) | Elegido por el mantenedor (también: header no fijo, o una fila con menú). El header fijo ocupaba ~95 px de pantalla en el celu. |
 | 12/11/2026 | El bot sigue commiteando `data/` en `main` cuando se proteja: excepción en el ruleset con una deploy key de escritura | Mantiene el workflow y el historial diario en `main` sin otra rama. `GITHUB_TOKEN` no puede ir en la lista de excepciones de un ruleset; una deploy key o una GitHub App sí. |
 | 12/11/2026 | El historial se limpia con `git filter-repo` en vez de publicar un repo nuevo | Conserva el historial de commits y de los datos diarios; solo se reemplaza la dirección. Después del force-push se pide a GitHub Support que purgue los commits viejos. |
+| 13/11/2026 | `main` sin ruleset ni rama `development`; el bot sigue pusheando `data/` directo | En un repo público solo pushea quien tiene permiso de escritura, y es solo el mantenedor: los demás tienen que hacer un fork y abrir un PR que él mergea. Los workflows son solo `workflow_dispatch`, así que un PR de un fork no corre nada ni toca los secrets. Reemplaza la decisión del 12/11 de la deploy key. |
 | 13/11/2026 | Se lanza sin revisión de un abogado; los términos y la privacidad los endureció un agente, priorizando cubrir al proyecto | Pedido del mantenedor: no hay presupuesto para un abogado y se lanza el mismo día. Riesgo aceptado: no es asesoramiento legal, y los términos de uso de las cadenas no se pudieron leer. |
 | 13/11/2026 | Sin cron: `daily.yml` se reemplaza por tres workflows de scrape, uno por cadena, y uno de deploy, todos a mano. Los scrapes commitean su archivo y su línea de `run.json` (con reintento del push, porque pueden correr a la vez) y el deploy publica lo que hay en `main` | El cron `0 10 * * *` salió 7 horas y media tarde los tres días (11, 12 y 13/11). Si no corre a horario, no sirve automatizado. Separado, una cadena caída (issue #2, DAR) se vuelve a correr sola y se publica recién cuando las tres están bien. Reemplaza la decisión del 10/11 de correr todo junto y a diario. |
 
@@ -246,7 +247,7 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
     9. Recién ahí volver a correr los workflows.
 - [ ] Hacer público el repo.
 - [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (`e1b25e4`)
-- [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR), con una excepción para el bot de los datos (ver Decisiones, 12/11/2026): crear una deploy key con permiso de escritura, cargar la clave privada como secret, que el `actions/checkout` de `scrape.yml` la use (`ssh-key`) y sumar la deploy key a la lista de excepciones del ruleset. Probar con una corrida manual que el commit de `data/` entre.
+- [x] ~~Crear la rama `development` y proteger `main`~~. Descartado el 13/11/2026 (ver Decisiones): el mantenedor es el único con permiso de escritura, así que nadie más puede pushear ni mergear a `main`. Si algún día se suma un colaborador con escritura, retomar: ruleset en `main` y deploy key de escritura para el bot (`ssh-key` en el `actions/checkout` de `scrape.yml`, y la key en las excepciones del ruleset).
 - [ ] Sacar el primer tag de release (`v0.1.0`).
 - [x] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web (`repo` de `config/site.toml`), y actualizar `docs/context.md`. Hecho el 13/11/2026. El link del pie aparece en el primer Publicar después de hacer público el repo.
 
@@ -265,7 +266,7 @@ Features pedidas por el mantenedor para después de `v0.1.0`. No se arrancan sin
 ## Pendientes y dudas abiertas
 
 - [ ] Nombre definitivo y dominio propio (opcional, mejor para SEO). Si se cambia, actualizar `url` en `config/site.toml` y el link del README.
-- [x] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Decidido el 12/11/2026: excepción para el bot con una deploy key (ver Lanzamiento).
+- [x] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Decidido el 12/11/2026: excepción para el bot con una deploy key. Al final no se protegió `main` (ver Decisiones, 13/11/2026).
 - [x] Íconos definitivos: flecha blanca sobre celeste `#0369A1` (11/11/2026; antes Tangerine).
 - [x] Capturas del README (12/11/2026, ver paso 8).
 - [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
@@ -291,6 +292,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `cf1c804` | 13/11/2026 | Lanzamiento: términos y privacidad reforzados, sin promesas de horario, URL del repo en el pie y en el User-Agent, fuentes de promos bancarias y próximas releases. |
 | `42810c4` | 13/11/2026 | Sin cron: un workflow de scrape por cadena y uno de deploy, todos a mano. |
 | `3fea2c5` | 12/11/2026 | Capturas en el README, headers y CSP verificados en producción, decisiones sobre el bot y el historial, pasos para limpiar el historial. |
 | `e1b25e4` | 12/11/2026 | `CONTRIBUTING.md`, link al repo en el pie (vacío hasta el lanzamiento), User-Agent de lanzamiento comentado, cron confirmado en STATUS. |
