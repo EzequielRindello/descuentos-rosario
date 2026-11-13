@@ -2,9 +2,8 @@
 # Cualquiera puede corregir este archivo con un PR, sin saber programar.
 # Detalle técnico de cada fuente: docs/context.md
 
-# Cómo se identifica el proyecto ante cada sitio. Al hacer público el repo, cambiar por:
-# user_agent = "OfertasRosario/0.1 (+https://github.com/EzequielRindello/descuentos-rosario)"
-user_agent = "OfertasRosario/0.1 (proyecto open source sin fines de lucro)"
+# Cómo se identifica el proyecto ante cada sitio: con la URL del repo, para que sepan quién lee y cómo.
+user_agent = "OfertasRosario/0.1 (+https://github.com/EzequielRindello/descuentos-rosario)"
 
 # Pausa entre requests a un mismo sitio, en milisegundos.
 request_delay_ms = 1000

@@ -2,14 +2,14 @@
 
 Las ofertas de los supermercados de Rosario, todos los días, en un solo lugar.
 
-Todas las mañanas se revisan las webs de **Coto**, **Carrefour** y **DAR** y se juntan las ofertas del día con precio de Rosario: precio de oferta contra precio normal, y promos tipo 2x1 o 70% en la segunda unidad.
+Una vez por día se revisan las webs de **Coto**, **Carrefour** y **DAR** y se juntan las ofertas del día con precio de Rosario: precio de oferta contra precio normal, y promos tipo 2x1 o 70% en la segunda unidad.
 
 - **Sin registrarte:** entrás y mirás.
 - **Instalable en el celu** como una app, y funciona sin señal adentro del súper.
 - **Solo ofertas de hoy:** si un día no se puede leer la web de una cadena, su sección queda vacía en vez de mostrar precios viejos.
 - **Gratis y de código abierto.**
 
-**👉 [ofertas-rosario.rindelloezequiel.workers.dev](https://ofertas-rosario.rindelloezequiel.workers.dev)** (en construcción)
+**👉 [ofertas-rosario.rindelloezequiel.workers.dev](https://ofertas-rosario.rindelloezequiel.workers.dev)**
 
 ![Buscando "leche" en la computadora: filtros a la izquierda y tarjetas con precio de oferta, precio anterior y descuento](docs/capturas/escritorio.png)
 
@@ -29,9 +29,9 @@ Queda un ícono como cualquier app. La última versión que abriste se puede ver
 
 ## Los datos son tuyos también
 
-Las ofertas del día se pueden descargar desde la web, en [`/datos/`](https://ofertas-rosario.rindelloezequiel.workers.dev/datos/): un JSON por cadena y un CSV con todas. También están en este repo, en [`data/offers/`](data/offers/), con el historial de cada día en los commits ([`data/run.json`](data/run.json) dice si alguna cadena no se pudo leer en la última corrida). Los precios están en centavos. Podés usarlos para lo que quieras.
+Las ofertas del día se pueden descargar desde la web, en [`/datos/`](https://ofertas-rosario.rindelloezequiel.workers.dev/datos/): un JSON por cadena y un CSV con todas. También están en este repo, en [`data/offers/`](data/offers/), con el historial de cada día en los commits ([`data/run.json`](data/run.json) dice si alguna cadena no se pudo leer en la última corrida). Los precios están en centavos. Se pueden reutilizar tal cual y sin garantías: las marcas, los nombres de productos y las fotos siguen siendo de sus dueños, y quien use los datos es responsable de cómo lo hace ([términos](https://ofertas-rosario.rindelloezequiel.workers.dev/terminos/)).
 
-Los precios salen de las webs públicas de cada cadena y pueden no coincidir con el de la góndola.
+Los precios salen de las webs públicas de cada cadena, son informativos y pueden no coincidir con el de la góndola. Es un proyecto independiente, sin relación con Coto, Carrefour ni DAR.
 
 ## Para quien quiera colaborar
 

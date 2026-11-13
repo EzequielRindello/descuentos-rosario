@@ -62,7 +62,7 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 
 ## Reglas de cortesía con los sitios
 
-- User-Agent identificable, en `config/stores.toml`. Hoy es `OfertasRosario/0.1 (proyecto open source sin fines de lucro)`; al lanzar pasa a `OfertasRosario/0.1 (+<url del repo>)`. Nunca hacerse pasar por un navegador.
+- User-Agent identificable, en `config/stores.toml`. Desde el lanzamiento (13/11/2026) es `OfertasRosario/0.1 (+https://github.com/EzequielRindello/descuentos-rosario)`. Nunca hacerse pasar por un navegador.
 - Respetar `robots.txt`.
 - Una corrida por día, pausa entre requests, sin paralelismo agresivo.
 - No extraer keys ni tokens de las páginas para usar sus APIs privadas.
@@ -116,7 +116,24 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 - Solo trae precio final, sin precio anterior. El descuento real sale del historial propio.
 - Primera corrida real (10/11/2026): 280 ofertas en 15 páginas, 17 s.
 - Detalle por producto en `Detalle.asp?Pr=<codigo>&P=1` (sin revisar).
-- Promos bancarias: banner en la home, sin revisar.
+- Promos bancarias (revisado el 13/11/2026): el link "Promociones Bancarias" del pie hace `POST /Login.asp` con `TM=PT&Crit=`, y esa página carga `PromosTar.asp`. Son solo imágenes (`Fotos/Promos/<n>-<Banco>_<fecha>.jpg`: Naranja, Credicoop, Municipal, MODO y Patagonia el 13/11), sin día, % ni tope en texto. No se puede leer sin OCR.
+
+### Promos por banco y medio de pago (revisado el 13/11/2026)
+
+Sin implementar. Por producto no vienen: `product.dtoDescuentosMediosPago` de Coto solo trae cuotas sin interés (40 de 600 productos, "pagando con todas las tarjetas").
+
+**Carrefour**: la página `/descuentos-bancarios` arma la lista en el navegador con la app `valtech.carrefourar-bank-promotions`, que lee la entidad de Master Data `BP` por el GraphQL público del sitio:
+
+- `POST https://www.carrefour.com.ar/_v/segment/graphql/v1?workspace=master` con el texto de la query (no hace falta el hash persistido ni ninguna key): `documents(acronym: "BP", schema: "mdv1", fields: [...], where: "active=true AND ((active_from < <ahora UTC>) AND (active_to > <ahora UTC>))", sort: "order ASC", pageSize: 999) { fields { key value } }`.
+- Campos útiles: `title`, `sub_title` (tope y si acumula), `discount_percentage` (null en las de cuotas), `monday`...`sunday` (`"true"`/`"false"`), formato de tienda (`hyper`, `market`, `express`, `maxi`, `ecommerce`), `legal` (texto completo), `active_from`/`active_to`, `idBank` e `idCard` (nombres en las entidades `FB` y `FC`, misma query con `fields: ["id","image","name"]`).
+- El 13/11/2026: 30 vigentes, 26 con %. Ojo: son nacionales y algunas son de otras provincias. La región solo está en el texto de `legal` (por ejemplo "AMBA, Mendoza, Córdoba..." o "provincias de: SANTA FE"), no en un campo.
+- `robots.txt` no bloquea `/_v/`.
+
+**Coto**: la página `/descuentos` usa un endpoint público, sin login:
+
+- `GET https://www.coto.com.ar/rest/model/atg/actors/cProfileActor/getPromocionesMulticanal?enviroment=ag` (sic). Devuelve `result.promocionesDigitales` (web) y `result.promocionesSucursalesFisicas` (sucursal).
+- Por promo: `textoDescuento` ("25% DE DESCUENTO" o "3 CUOTAS SIN INTERÉS"), `dias` (lista con `id` y `descripcion`) y `diasVigencia` ("Viernes", "Sabado y Domingo"), `descripcion` (medio de pago), `observacion` (tope, exclusiones, si aplica sobre productos en oferta), `icono` (logo: `logo_mercadopago.png`, `logo_naranjax2.png`...; es lo único que dice el banco, porque `banco` es un número y vale 0 en billeteras y programas). `vigenciaDesde`/`vigenciaHasta` vienen vacíos.
+- El 13/11/2026: 37 digitales (14 con %) y 48 de sucursal (23 con %). El resto son cuotas sin interés en electro. Ejemplo: viernes 25% con todos los medios de pago dentro de la app de Mercado Pago, solo en sucursal. Algunas son solo de CABA ("Ciudadanía porteña", Banco Ciudad), y tampoco hay campo de región.
 
 ### Descartadas
 

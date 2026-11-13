@@ -17,5 +17,4 @@ home_per_chain = 6
 contact = "rindello14@gmail.com"
 
 # URL del repo (se muestra en el pie como "Código fuente"). Vacío = no se muestra.
-# Completar al hacer público el repo: https://github.com/EzequielRindello/descuentos-rosario
-repo = ""
+repo = "https://github.com/EzequielRindello/descuentos-rosario"

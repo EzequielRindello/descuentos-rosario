@@ -4,7 +4,7 @@ Leé esto primero si llegás sin contexto (persona o agente). Dice qué queremos
 
 **Regla:** este archivo se actualiza en cada cambio que importe. Cada tarea terminada cita el commit que la cerró (hash corto). Los commits se hacen a mano; el hash se carga después. Si algo de acá no coincide con el código o con `git log`, manda el código: corregí este archivo.
 
-Última actualización: 12/11/2026.
+Última actualización: 13/11/2026.
 
 ## Qué es
 
@@ -79,7 +79,7 @@ Un agente no dispara estos workflows sin OK del mantenedor.
 | Estilos | ✅ Paleta "Celeste Rosario", Inter, celu primero, grilla en escritorio, modo oscuro según el dispositivo | `web/styles.css`, `web/fonts/` |
 | Páginas legales | ✅ Preguntas frecuentes, términos y privacidad. Falta el canal de contacto y la revisión legal | `templates/preguntas.html`, `terminos.html`, `privacidad.html` |
 | Deploy Cloudflare | ✅ Publicado (manual con `wrangler`) | `wrangler.jsonc` |
-| GitHub Actions | ⏳ Un scrape por cadena y un deploy, a mano (13/11). Falta la primera corrida | `.github/workflows/scrape*.yml`, `deploy.yml` |
+| GitHub Actions | ✅ Un scrape por cadena y un deploy, a mano. Primera corrida OK el 13/11/2026: los 3 scrapes a la vez (runs `43499532804`, `43499556369`, `43499569848`; commits `9356f46`, `5587af5`, `be251ee`, sin choques en el push) y Publicar (run `43501106753`) | `.github/workflows/scrape*.yml`, `deploy.yml` |
 | README para usuarios | ✅ Link, cómo instalarla y datos abiertos. Las capturas van después de los estilos | `README.md` |
 | Licencia | ✅ MIT | `LICENSE` |
 | Historial de precios (baja real) | ⏳ Etapa 2 | |
@@ -192,6 +192,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 11/11/2026 | Celu: al bajar se esconde la fila de pestañas y queda fija solo la barra con la marca y los botones; al subir vuelven. La fila se desliza por debajo de la barra (el header es transparente y deja pasar los clics), así la página no se mueve. Mismo orden de foco que antes (marca, pestañas, botones) | Elegido por el mantenedor (también: header no fijo, o una fila con menú). El header fijo ocupaba ~95 px de pantalla en el celu. |
 | 12/11/2026 | El bot sigue commiteando `data/` en `main` cuando se proteja: excepción en el ruleset con una deploy key de escritura | Mantiene el workflow y el historial diario en `main` sin otra rama. `GITHUB_TOKEN` no puede ir en la lista de excepciones de un ruleset; una deploy key o una GitHub App sí. |
 | 12/11/2026 | El historial se limpia con `git filter-repo` en vez de publicar un repo nuevo | Conserva el historial de commits y de los datos diarios; solo se reemplaza la dirección. Después del force-push se pide a GitHub Support que purgue los commits viejos. |
+| 13/11/2026 | Se lanza sin revisión de un abogado; los términos y la privacidad los endureció un agente, priorizando cubrir al proyecto | Pedido del mantenedor: no hay presupuesto para un abogado y se lanza el mismo día. Riesgo aceptado: no es asesoramiento legal, y los términos de uso de las cadenas no se pudieron leer. |
 | 13/11/2026 | Sin cron: `daily.yml` se reemplaza por tres workflows de scrape, uno por cadena, y uno de deploy, todos a mano. Los scrapes commitean su archivo y su línea de `run.json` (con reintento del push, porque pueden correr a la vez) y el deploy publica lo que hay en `main` | El cron `0 10 * * *` salió 7 horas y media tarde los tres días (11, 12 y 13/11). Si no corre a horario, no sirve automatizado. Separado, una cadena caída (issue #2, DAR) se vuelve a correr sola y se publica recién cuando las tres están bien. Reemplaza la decisión del 10/11 de correr todo junto y a diario. |
 
 ## Próximos pasos
@@ -209,7 +210,7 @@ En orden. Cuando cierres una, marcala y poné el commit.
 9. [ ] **Alta en buscadores** (la hace el dueño del dominio): Google Search Console (propiedad "Prefijo de URL", verificación por archivo HTML en `web/`) y Bing Webmaster (importar desde Google). **Esperar** a la revisión de términos de las cadenas y al dominio propio.
 10. [x] **Páginas legales e informativas**: `/preguntas-frecuentes/`, `/terminos/` (aviso legal: sin relación con las cadenas, precios informativos, sin garantías, cómo se leen los datos, pedidos de retiro, ley argentina) y `/privacidad/` (sin cookies ni analítica; verificado que Cloudflare no pone cookies). Links en el pie y en el sitemap. 404 verificado en producción. (`8058095`, `5685249`)
 11. [x] **Canal de contacto**: un mail en `contact` de `config/site.toml`, con link `mailto:` en preguntas, términos y privacidad. Sirve para los pedidos de corrección o retiro de las cadenas. (`8058095`, `5685249`)
-12. [ ] **Revisión legal**: los textos de términos y privacidad los escribió un agente, no un abogado. Que los revise alguien con matrícula antes del lanzamiento, junto con los términos de uso de cada cadena.
+12. [x] **Revisión legal**: no hay presupuesto para un abogado, así que la hizo un agente el 13/11/2026, con la prioridad de cubrir al proyecto lo más posible (ver Decisiones, 13/11/2026). **No es asesoramiento legal.** Términos: los precios no son una oferta ni obligan a nadie (art. 7 de la Ley 24.240 hace vinculante la oferta de quien la publica), sin relación de consumo, sin garantías, límite de responsabilidad "en la mayor medida que permita la ley", marcas y fotos de sus dueños con uso solo para identificar, compromiso de dejar de leer una web si la cadena lo pide, retiros en 5 días hábiles, reglas de uso, datos abiertos sin ceder derechos de terceros, jurisdicción en Rosario y divisibilidad. Privacidad: qué pasa con los mails que llegan, derechos de la Ley 25.326 y la mención a la Agencia de Acceso a la Información Pública. Además se sacaron las promesas de horario ("todas las mañanas") de la web, el README y `llms.txt`, porque la corrida es a mano. Quedó sin leer: los términos de uso de cada cadena (Carrefour los carga con JavaScript; de Coto y DAR no se encontraron), ver Pendientes.
 13. [x] **Favicon**: flecha de cursor blanca sobre negro (`web/icons/favicon.svg` + PNG 192/512/maskable). Provisorio hasta los estilos. (`8058095`, `5685249`)
 14. [x] **Seguridad, arreglos rápidos**: headers en `web/_headers` (CSP que solo permite el propio sitio, `frame-ancestors 'none'`, Permissions-Policy, COOP, HSTS) y links a las cadenas solo si son `https://`. Probado en local con un servidor que aplica `_headers`: sin errores de CSP. En producción (12/11/2026): los seis headers llegan en todas las rutas, `sw.js` sin caché, `/datos/` con CORS, sin `Set-Cookie`; en Chrome, portada, búsqueda y página de Carrefour sin errores de consola ni violaciones de CSP, con las fotos de Carrefour y Coto cargando. (`8058095`, `5685249`)
 15. [x] **Seguridad del workflow**: actions fijadas por SHA (`actions/checkout` v7.0.1, que ya corre en Node 24; `dtolnay/rust-toolchain` stable; `Swatinem/rust-cache` v2.9.3), `wrangler@4.155.0` exacto y Dependabot semanal para Cargo y Actions (`.github/dependabot.yml`). `wrangler` se actualiza a mano: Dependabot no ve `npx`. Visto en corridas reales: cron del 11/11 y manual del 12/11 (run `43223515281`), todos los pasos OK. (`9046117`)
@@ -231,7 +232,9 @@ En orden. Cuando cierres una, marcala y poné el commit.
 
 El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
-- [ ] **Antes de hacer público el repo, limpiar el historial** con `git filter-repo` (decidido el 12/11/2026). Revisado el 12/11/2026: la dirección personal que figuraba como sucursal de DAR está en `config/stores.toml`, `docs/brief.md` y `data/offers/dar.json`, desde `c24cf42` hasta los commits del bot del 11 y 12/11 (en `data/offers/dar.json`). `HEAD` ya está limpio. Los autores usan el mail `noreply` de GitHub; no hay rutas locales; los logs de Actions, el issue #1 y los PRs (ninguno) no la tienen. El mail de contacto de `config/site.toml` queda a propósito: se publica en la web. Todo esto lo corre el mantenedor a mano:
+- [x] **Antes de hacer público el repo, limpiar el historial** con `git filter-repo` (decidido el 12/11/2026). Hecho el 12/11/2026 (`3964fd0` pasó los hashes a los nuevos). Verificado el 13/11/2026: el primer `data/offers/dar.json` del historial ya dice `"store":"DAR"` y `docs/brief.md` tiene "(dirección quitada)" en todo el historial.
+- [x] Confirmar que GitHub Support borró los commits viejos y las vistas en caché (paso 7 de abajo). Confirmado por el mantenedor el 13/11/2026.
+- Pasos que se siguieron para la limpieza (quedan como referencia). Revisado el 12/11/2026: la dirección personal que figuraba como sucursal de DAR está en `config/stores.toml`, `docs/brief.md` y `data/offers/dar.json`, desde `c24cf42` hasta los commits del bot del 11 y 12/11 (en `data/offers/dar.json`). `HEAD` ya está limpio. Los autores usan el mail `noreply` de GitHub; no hay rutas locales; los logs de Actions, el issue #1 y los PRs (ninguno) no la tienen. El mail de contacto de `config/site.toml` queda a propósito: se publica en la web. Todo esto lo corre el mantenedor a mano:
     1. Elegir un momento en que no esté corriendo ningún workflow y no disparar ninguno hasta terminar.
     2. Instalar `git-filter-repo` (en WSL: `sudo apt install git-filter-repo`).
     3. Clonar de cero en una carpeta aparte (filter-repo pide un clon recién hecho) y correr `git filter-repo --replace-text <archivo>`. El archivo va **fuera del repo** y tiene dos líneas: la sucursal con la dirección `==>DAR`, y la dirección sola `==>(dirección quitada)`.
@@ -245,7 +248,19 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 - [x] Agregar `CONTRIBUTING.md` (en español: cómo correrlo, cómo sumar una cadena o corregir una sucursal, reglas de cortesía con los sitios). (`e1b25e4`)
 - [ ] Crear la rama `development` para el trabajo diario y proteger `main` (solo entra por PR), con una excepción para el bot de los datos (ver Decisiones, 12/11/2026): crear una deploy key con permiso de escritura, cargar la clave privada como secret, que el `actions/checkout` de `scrape.yml` la use (`ssh-key`) y sumar la deploy key a la lista de excepciones del ruleset. Probar con una corrida manual que el commit de `data/` entre.
 - [ ] Sacar el primer tag de release (`v0.1.0`).
-- [ ] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web. Preparado (`e1b25e4`): el pie muestra "Código fuente" cuando `repo` de `config/site.toml` tiene valor, y el User-Agent nuevo está comentado en `config/stores.toml`. Quedan vacíos hasta que el repo sea público, porque el sitio se publica solo y el link daría 404. Al lanzar: completar `repo`, cambiar el User-Agent y actualizar `docs/context.md`.
+- [x] Poner la URL del repo en el User-Agent (`config/stores.toml`) y en el pie de la web (`repo` de `config/site.toml`), y actualizar `docs/context.md`. Hecho el 13/11/2026. El link del pie aparece en el primer Publicar después de hacer público el repo.
+
+## Próximas releases (después del lanzamiento)
+
+Features pedidas por el mantenedor para después de `v0.1.0`. No se arrancan sin que él lo pida. Se suman más a medida que aparezcan.
+
+- [ ] **Pestaña de descuentos por banco** (pedida el 13/11/2026). Fuentes revisadas (ver `docs/context.md`, "Promos por banco y medio de pago"): Carrefour y Coto tienen endpoints con día, %, medio de pago y tope; DAR solo imágenes (a lo sumo un link a su página). `product.dtoDescuentosMediosPago` de Coto solo trae cuotas, no sirve. Propuesta: agrupadas por día, con cadena, %, medio de pago, tope, online o sucursal y link al legal; sin las de cuotas ni las de otras provincias (filtro por texto, porque no hay campo de región). Se leen en el scrape de cada cadena.
+- [ ] **Avisos en el celu cuando algo entra en oferta** (pedida el 13/11/2026). El usuario guarda un producto (como hoy en "Tus guardados") o una palabra clave ("yerba", "pañales") y recibe una notificación cuando aparece en oferta. Retoma la decisión del 10/11/2026 (push de la propia PWA con un Worker). Lo que implica, para decidir antes de arrancar:
+    - Web Push con claves VAPID (una es secreta y va como secret en Cloudflare).
+    - Un Worker con código para guardar las suscripciones (KV o D1). Hoy el Worker solo sirve archivos (ver la nota de `wrangler.jsonc`): el código tiene que atender solo la ruta de suscripción, así los archivos siguen gratis.
+    - Hoy los guardados viven solo en el dispositivo. Para avisar, el servidor tiene que conocer los productos y palabras de cada suscripción: cambia Privacidad ("no guardamos datos") y hace falta poder borrarse.
+    - Quién manda los avisos: un paso después de Publicar que compare las ofertas nuevas con las suscripciones. Como la corrida es a mano, los avisos salen cuando se publica.
+    - En iPhone solo funciona con la app instalada (iOS 16.4 o más nuevo). En Android anda también desde el navegador.
 
 ## Pendientes y dudas abiertas
 
@@ -254,12 +269,11 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 - [x] Íconos definitivos: flecha blanca sobre celeste `#0369A1` (11/11/2026; antes Tangerine).
 - [x] Capturas del README (12/11/2026, ver paso 8).
 - [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
-- [ ] Coto: guardar los descuentos por medio de pago (`product.dtoDescuentosMediosPago`) para la página de bancos.
 - [ ] Coto: confirmar que `sDisp` 1004 = disponible y 1001 = no disponible. Solo existen esos dos valores (36 tiendas en un producto: 30 con 1004, 6 con 1001). La web de Coto no deja elegir sucursal sin cuenta, así que no se pudo confirmar desde la web.
 - [ ] Carrefour: promos 2x1 (`Teasers` viene vacío en Intelligent Search).
-- [ ] DAR: promos bancarias y `Detalle.asp` (sin revisar).
+- [ ] DAR: `Detalle.asp` (sin revisar). Las promos bancarias son solo imágenes (revisado el 13/11/2026).
 - [ ] DAR: no tiene precio anterior; su descuento real depende del historial (etapa 2).
-- [ ] Revisar términos de uso de cada sitio antes del lanzamiento (la web ya es accesible por URL, pero no está difundida).
+- [ ] Leer los términos de uso de cada cadena. Intentado el 13/11/2026 sin éxito: Carrefour enlaza `supermercado.carrefour.com.ar/legales`, que se arma con JavaScript (hay que abrirla en un navegador); Coto y DAR no tienen un link visible a términos del sitio. Mientras tanto, la protección es la de nuestros términos: datos públicos, `robots.txt`, User-Agent con la URL del repo, pocas consultas y dejar de leer si la cadena lo pide.
 
 ## Problemas conocidos
 
@@ -277,6 +291,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `42810c4` | 13/11/2026 | Sin cron: un workflow de scrape por cadena y uno de deploy, todos a mano. |
 | `3fea2c5` | 12/11/2026 | Capturas en el README, headers y CSP verificados en producción, decisiones sobre el bot y el historial, pasos para limpiar el historial. |
 | `e1b25e4` | 12/11/2026 | `CONTRIBUTING.md`, link al repo en el pie (vacío hasta el lanzamiento), User-Agent de lanzamiento comentado, cron confirmado en STATUS. |
 | `c150776` | 11/11/2026 | Arreglos de la revisión de diseño. |

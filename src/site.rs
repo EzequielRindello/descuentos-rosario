@@ -643,7 +643,7 @@ fn write_seo_files(out_dir: &Path, site: &SiteConfig, chains: &[ChainView], site
 
     // llms.txt: a plain summary for AI assistants (https://llmstxt.org).
     let mut llms = format!(
-        "# {}\n\n> {}\n\nSitio independiente y de código abierto. Se actualiza todos los días por la mañana (hora de Argentina). Última actualización: {updated}. \
+        "# {}\n\n> {}\n\nSitio independiente y de código abierto, sin relación con las cadenas. Se actualiza en general una vez por día. Última actualización: {updated}. \
          Los precios son los de la web de cada cadena para Rosario, Santa Fe, Argentina, y pueden diferir del precio en góndola.\n\n## Ofertas por cadena\n\n",
         site.name, site.description
     );

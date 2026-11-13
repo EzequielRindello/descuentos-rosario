@@ -3,77 +3,91 @@
 <article class="prose info info-terms">
 <header class="info-hero">
 <h1>Términos de uso y aviso legal</h1>
-<p>Al usar {{ site.name }} aceptás estos términos. Última actualización: 11/11/2026.</p>
+<p>Al usar {{ site.name }} aceptás estos términos. Si no estás de acuerdo, no uses el sitio. Última actualización: 13/11/2026.</p>
 </header>
 
 <div class="info-list">
 <section class="info-row">
 <h2>1. Qué es este sitio</h2>
 <div>
-<p>{{ site.name }} es un sitio informativo, gratuito y de código abierto que muestra ofertas publicadas por supermercados en sus webs. No vende productos, no intermedia en compras y no cobra por su uso.</p>
+<p>{{ site.name }} es un sitio informativo, gratuito, sin fines de lucro y de código abierto, hecho por particulares, que muestra ofertas publicadas por supermercados en sus webs. No vende productos, no intermedia en compras, no cobra por su uso y no tiene publicidad. Usarlo no crea ninguna relación comercial ni de consumo con nosotros.</p>
 </div>
 </section>
 
 <section class="info-row">
 <h2>2. Sin relación con las cadenas</h2>
 <div>
-<p>{{ site.name }} no tiene relación con {% for c in chains %}{{ c.name }}{% if not loop.last %}{% if loop.revindex == 2 %} ni {% else %}, {% endif %}{% endif %}{% endfor %}, ni con ninguna otra cadena, y no está patrocinado ni avalado por ellas. Sus nombres y marcas pertenecen a sus dueños y se mencionan solo para indicar de dónde sale cada precio. No usamos sus logos. Las fotos de los productos pertenecen a sus dueños: se muestran desde los servidores de cada cadena, sin copiarlas, solo para identificar el producto, y se dejan de mostrar si la cadena lo pide.</p>
+<p>{{ site.name }} no tiene relación con {% for c in chains %}{{ c.name }}{% if not loop.last %}{% if loop.revindex == 2 %} ni {% else %}, {% endif %}{% endif %}{% endfor %}, ni con ninguna otra cadena, y no está patrocinado ni avalado por ellas. Sus nombres y marcas, y las marcas de los productos, pertenecen a sus dueños y se mencionan solo para indicar de dónde sale cada precio y de qué producto se trata. No usamos sus logos. Las fotos de los productos pertenecen a sus dueños: se muestran desde los servidores de cada cadena, sin copiarlas, solo para identificar el producto, y se dejan de mostrar si la cadena lo pide.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>3. Los precios son informativos</h2>
+<h2>3. Los precios no son una oferta</h2>
 <div>
-<p>Los precios, descuentos y promociones se copian una vez por día de las webs públicas de cada cadena. Pueden cambiar en cualquier momento, tener errores o no coincidir con los de la tienda. El precio que vale es el que informa la cadena al momento de comprar. Revisalo siempre en el súper.</p>
+<p>Los precios, descuentos y promociones son una copia de lo que cada cadena publica en su web, tal como estaba en la última actualización (cada página dice la fecha). No son una oferta nuestra ni de la cadena hecha a través de este sitio, y no obligan a nadie a vender a ese precio. Pueden haber cambiado, tener errores de la cadena o nuestros al leerlos, o no coincidir con los de la tienda. El porcentaje de descuento lo calculamos nosotros con los precios publicados y es aproximado. No incluimos descuentos por banco, tarjeta o medio de pago. El precio que vale es el que informa la cadena al momento de comprar. Revisalo siempre en el súper.</p>
 </div>
 </section>
 
 <section class="info-row">
 <h2>4. Sin garantías</h2>
 <div>
-<p>El sitio se ofrece "tal cual". No garantizamos que la información sea exacta, completa o esté actualizada, ni que el sitio esté siempre disponible. No somos responsables por decisiones de compra tomadas a partir de esta información ni por el contenido de las webs de terceros a las que enlazamos.</p>
+<p>El sitio y sus datos se ofrecen "tal cual" y "según disponibilidad". No garantizamos que la información sea exacta, completa o esté actualizada, ni que el sitio esté siempre disponible o libre de errores. Podemos cambiar, suspender o dar de baja el sitio, una cadena o cualquier función en cualquier momento y sin aviso.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>5. Cómo obtenemos los datos</h2>
+<h2>5. Límite de responsabilidad</h2>
 <div>
-<p>Leemos solo información pública, una vez por día, con un programa que se identifica como {{ site.name }}. Respetamos el archivo <code>robots.txt</code> de cada sitio, no iniciamos sesión, no usamos claves privadas y no salteamos ninguna protección.</p>
+<p>En la mayor medida que permita la ley, no respondemos por daños, pérdidas o gastos, directos o indirectos, que resulten del uso del sitio o de no poder usarlo, de errores u omisiones en la información, de decisiones de compra tomadas a partir de ella, ni del contenido o el funcionamiento de webs de terceros, incluidas las de las cadenas y las fotos que se cargan desde ellas. Cada usuario decide bajo su responsabilidad qué hacer con la información.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>6. Pedidos de corrección o retiro</h2>
+<h2>6. Cómo obtenemos los datos</h2>
 <div>
-<p>Si representás a una cadena y querés que corrijamos algo o que dejemos de mostrar tus datos, {% if site.contact %}escribinos a <a href="mailto:{{ site.contact }}">{{ site.contact }}</a> y lo atendemos a la brevedad.{% else %}vamos a atenderlo a la brevedad. El canal de contacto se publica acá en los próximos días.{% endif %}</p>
+<p>Leemos solo información pública, en general una vez por día, con pocas consultas y con pausas entre ellas, usando un programa que se identifica como {{ site.name }}. Respetamos el archivo <code>robots.txt</code> de cada sitio, no iniciamos sesión, no usamos claves privadas y no salteamos ninguna protección. Si una cadena nos pide que dejemos de leer su web, lo hacemos.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>7. Datos abiertos y código</h2>
+<h2>7. Pedidos de corrección o retiro</h2>
 <div>
-<p>Los datos de <a href="/datos/">Datos abiertos</a> se pueden reutilizar libremente; quien los use es responsable de cómo lo hace. El código del sitio se publica con licencia MIT.</p>
+<p>Si representás a una cadena o sos titular de una marca o una foto y querés que corrijamos algo o que dejemos de mostrarlo, {% if site.contact %}escribinos a <a href="mailto:{{ site.contact }}">{{ site.contact }}</a>.{% else %}contactanos por los medios que figuran en el sitio.{% endif %} Respondemos dentro de los 5 días hábiles y, si corresponde, lo sacamos del sitio y dejamos de recolectarlo.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>8. Privacidad</h2>
+<h2>8. Uso del sitio</h2>
+<div>
+<p>No uses el sitio para fines ilegales, no intentes sobrecargarlo ni atacarlo, y no presentes sus datos como precios oficiales u ofertas de las cadenas.</p>
+</div>
+</section>
+
+<section class="info-row">
+<h2>9. Datos abiertos y código</h2>
+<div>
+<p>Los archivos de <a href="/datos/">Datos abiertos</a> se ofrecen tal cual y sin garantías, con los mismos límites de estos términos. No damos ningún derecho sobre marcas, nombres de productos ni fotos, que siguen siendo de sus dueños. Quien reutilice los datos es el único responsable de cómo lo hace y de respetar los derechos de terceros. El código del sitio se publica con licencia MIT, que tiene su propia exclusión de garantías.</p>
+</div>
+</section>
+
+<section class="info-row">
+<h2>10. Privacidad</h2>
 <div>
 <p>No pedimos registro ni recolectamos datos personales. Ver <a href="/privacidad/">Privacidad</a>.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>9. Cambios</h2>
+<h2>11. Cambios</h2>
 <div>
-<p>Podemos actualizar estos términos. La fecha de arriba indica la última versión.</p>
+<p>Podemos actualizar estos términos. La fecha de arriba indica la última versión, y seguir usando el sitio después de un cambio implica aceptarlo.</p>
 </div>
 </section>
 
 <section class="info-row">
-<h2>10. Ley aplicable</h2>
+<h2>12. Ley aplicable y jurisdicción</h2>
 <div>
-<p>Estos términos se rigen por las leyes de la República Argentina.</p>
+<p>Estos términos se rigen por las leyes de la República Argentina. Cualquier conflicto se somete a los tribunales ordinarios de la ciudad de Rosario, provincia de Santa Fe, salvo que una norma de orden público disponga otra cosa. Si alguna cláusula no fuera válida, el resto sigue vigente.</p>
 </div>
 </section>
 </div>
