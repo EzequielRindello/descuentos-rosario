@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-14T10:46:30-03:00",
+  "generated_at": "2026-11-15T10:29:15-03:00",
   "chains": {
     "carrefour": {
       "ok": true,
@@ -15,8 +15,8 @@
     },
     "dar": {
       "ok": true,
-      "offers": 288,
-      "seconds": 21,
+      "offers": 284,
+      "seconds": 23,
       "error": null
     }
   }
