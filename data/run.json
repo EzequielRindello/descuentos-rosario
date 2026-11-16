@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-11-16T13:51:44-03:00",
+  "generated_at": "2026-11-16T13:52:06-03:00",
   "chains": {
     "carrefour": {
       "ok": true,
-      "offers": 2082,
-      "seconds": 184,
+      "offers": 1987,
+      "seconds": 159,
       "error": null
     },
     "coto": {
