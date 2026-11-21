@@ -153,8 +153,8 @@ async fn run_chain(enabled: bool, config: &Config, chain: Chain) -> Option<(Resu
         let is_dar = chain == Chain::Dar;
         let http = Http::new(&config.user_agent, config.request_delay_ms, is_dar, is_dar)?;
         match chain {
-            Chain::Carrefour => scrapers::carrefour::scrape(&config.carrefour, &http).await,
-            Chain::Coto => scrapers::coto::scrape(&config.coto, &http).await,
+            Chain::Carrefour => scrapers::carrefour::scrape(&config.carrefour, &config.categories, &http).await,
+            Chain::Coto => scrapers::coto::scrape(&config.coto, &config.categories, &http).await,
             Chain::Dar => scrapers::dar::scrape(&config.dar, &http).await,
         }
     }

@@ -14,7 +14,7 @@ use minijinja::{Environment, Value};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::config::Config;
+use crate::config::{Category, Config};
 use crate::model::{Chain, Offer};
 use crate::output::RunReport;
 
@@ -69,6 +69,8 @@ struct ChainView {
     count: usize,
     count_label: String,
     has_list_prices: bool,
+    /// Some offer has a site category (never DAR): the chain page shows the "Categoría" filter.
+    has_categories: bool,
     /// The last scrape of this chain failed: the site shows no offers instead of stale ones.
     failed: bool,
     top: Vec<OfferView>,
@@ -88,8 +90,11 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     let chains = load_chains(data_dir, stores, report.as_ref())?;
     // Machine-readable run time: pages carry it so app.js can tell stale (cached) pages apart.
     let updated_iso = report.as_ref().map(|r| r.generated_at.clone()).unwrap_or_default();
+    let categories = category_views(&chains, &stores.categories);
     let mut env = environment()?;
     env.add_global("updated_iso", updated_iso.clone());
+    // The "Categoría" filter, on the home page and every chain page that has categories.
+    env.add_global("categories", Value::from(minijinja::value::Serde(&categories)));
 
     if out_dir.exists() {
         fs::remove_dir_all(out_dir).with_context(|| format!("cleaning {}", out_dir.display()))?;
@@ -106,6 +111,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
             count: c.offers.len(),
             count_label: group_thousands(c.offers.len() as u64),
             has_list_prices: c.offers.iter().any(|o| o.list_price.is_some()),
+            has_categories: c.offers.iter().any(|o| o.category.is_some()),
             failed: c.failed,
             top: highlights(&c.offers, site.home_per_chain).into_iter().map(view).collect(),
         })
@@ -128,7 +134,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "json_ld": json_ld(&home_ld),
         "total_label": group_thousands(total as u64),
         "available_label": join_names(&available),
-        "quick": quick_counts(&chains),
+        "quick": quick_counts(&chains, &categories),
     })))?;
 
     // One paginated section per chain.
@@ -385,7 +391,7 @@ fn promo_kind(offer: &Offer) -> &'static str {
 
 /// How many of today's offers each home shortcut finds ("50% o más", "2x1 y 3x2"...). Zero means
 /// the shortcut is hidden. Failed chains have no offers, same as in the search index.
-fn quick_counts(chains: &[ChainData]) -> serde_json::Value {
+fn quick_counts(chains: &[ChainData], categories: &[CategoryView]) -> serde_json::Value {
     let offers = || chains.iter().flat_map(|c| c.offers.iter());
     let label = |n: usize| (n > 0).then(|| group_thousands(n as u64));
     json!({
@@ -393,49 +399,29 @@ fn quick_counts(chains: &[ChainData]) -> serde_json::Value {
         "min40": label(offers().filter(|o| o.discount_pct.unwrap_or(0) >= 40).count()),
         "nxm": label(offers().filter(|o| promo_kind(o) == "nxm").count()),
         "second": label(offers().filter(|o| promo_kind(o) == "2da").count()),
-        "words": QUICK_WORDS
-            .iter()
-            .filter_map(|phrase| {
-                let n = offers().filter(|o| matches_search(&o.name, phrase)).count();
-                // "+" for spaces: URLSearchParams reads it back as a space.
-                label(n).map(|count| json!({ "word": phrase, "query": phrase.replace(' ', "+"), "count": count }))
-            })
-            .collect::<Vec<_>>(),
+        "categories": categories,
     })
 }
 
-/// Same rule as the search in app.js: every word of two letters or more appears in the name, in
-/// any order ("alimento para perro" finds "Alimento seco para perro Pedigree").
-fn matches_search(name: &str, phrase: &str) -> bool {
-    let name = fold(name);
-    fold(phrase).split_whitespace().filter(|w| w.chars().count() > 1).all(|w| name.contains(w))
+/// A site category with offers today, for the home shortcuts and the "Categoría" filter.
+#[derive(Debug, Serialize)]
+struct CategoryView {
+    id: String,
+    name: String,
+    count: String,
 }
 
-/// Everyday products suggested under the home search box (only those with offers today): the
-/// basic food basket first, then drinks, cleaning, diapers and pet food. Words that also match
-/// unrelated products by substring are left out ("pan" finds "panales", "vino" finds "vinagre",
-/// "pollo" finds chicken-flavored dog food).
-const QUICK_WORDS: [&str; 19] = [
-    "yerba",
-    "leche",
-    "carne",
-    "huevos",
-    "fideos",
-    "arroz",
-    "harina",
-    "azúcar",
-    "aceite",
-    "queso",
-    "galletitas",
-    "café",
-    "gaseosa",
-    "cerveza",
-    "papel higiénico",
-    "detergente",
-    "pañales",
-    "alimento para perro",
-    "alimento para gato",
-];
+/// The configured categories that have offers today, in config order. Empty when the data has no
+/// categories yet (written before they existed): then neither the shortcuts nor the filter show.
+fn category_views(chains: &[ChainData], categories: &[Category]) -> Vec<CategoryView> {
+    categories
+        .iter()
+        .filter_map(|category| {
+            let n = chains.iter().flat_map(|c| &c.offers).filter(|o| o.category.as_deref() == Some(category.id.as_str())).count();
+            (n > 0).then(|| CategoryView { id: category.id.clone(), name: category.name.clone(), count: group_thousands(n as u64) })
+        })
+        .collect()
+}
 
 /// Lowercase without accents, like `normalize` in app.js (enough for Spanish product names).
 fn fold(text: &str) -> String {
@@ -542,7 +528,8 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
     fs::create_dir_all(&dir)?;
     let mut search_rows = Vec::new();
     let mut csv = csv::Writer::from_path(dir.join("hoy.csv"))?;
-    csv.write_record(["cadena", "sucursal", "id", "ean", "nombre", "precio_centavos", "precio_anterior_centavos", "descuento_pct", "promo", "url"])?;
+    // New columns go at the end, so scripts that read columns by position keep working.
+    csv.write_record(["cadena", "sucursal", "id", "ean", "nombre", "precio_centavos", "precio_anterior_centavos", "descuento_pct", "promo", "url", "categoria"])?;
     for data in chains {
         fs::write(dir.join(format!("{}.json", data.chain.id())), serde_json::to_string(&data.offers)?)?;
         for offer in &data.offers {
@@ -558,8 +545,9 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 opt(offer.discount_pct.map(|p| p.to_string())),
                 opt(offer.promo.clone()),
                 opt(offer.url.clone()),
+                opt(offer.category.clone()),
             ])?;
-            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image].
+            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image, category].
             search_rows.push(json!([
                 format!("{}:{}", offer.chain.id(), offer.id),
                 offer.chain.name(),
@@ -570,6 +558,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 offer.promo,
                 offer.url,
                 thumbnail(offer),
+                offer.category,
             ]));
         }
     }
@@ -701,6 +690,7 @@ mod tests {
             url: None,
             image: Some(image.into()),
             source: crate::model::Source::Web,
+            category: None,
         };
         assert_eq!(
             thumbnail(&offer(Chain::Carrefour, "https://carrefourar.vtexassets.com/arquivos/ids/171526/foto.jpg?v=1")).as_deref(),
@@ -724,13 +714,6 @@ mod tests {
         assert_eq!(promo_chip(Some("70% 2da (Llevando 2)")).as_deref(), Some("70% 2da"));
     }
 
-    #[test]
-    fn suggested_phrases_count_like_the_search() {
-        assert!(matches_search("Alimento seco para perro Pedigree 3 kg", "alimento para perro"));
-        assert!(matches_search("Pañales Huggies Protect Plus", "pañales"));
-        assert!(matches_search("PAPEL HIGIENICO DOBLE HOJA", "papel higiénico"));
-        assert!(!matches_search("Collar para perro Vitalfun", "alimento para perro"));
-    }
 
     #[test]
     fn multi_buy_price_is_per_unit() {
@@ -756,6 +739,7 @@ mod tests {
             url: None,
             image: None,
             source: crate::model::Source::Web,
+            category: None,
         };
         let offers = ["Gelatina Anana", "Gelatina Cereza", "ACONDIC. SEDAL", "ACONDIC.PLUSBELLE", "Acondic. Dove", "Yerba"].map(offer);
         let names: Vec<&str> = highlights(&offers, 8).iter().map(|o| o.name.as_str()).collect();
@@ -778,6 +762,7 @@ mod tests {
             url: None,
             image: None,
             source: crate::model::Source::Web,
+            category: None,
         };
         assert_eq!(promo_kind(&offer(Some("2x1 (Llevando 2)"), Some(50))), "nxm");
         assert_eq!(promo_kind(&offer(Some("3 X 2"), None)), "nxm");
@@ -866,6 +851,65 @@ mod tests {
             assert!(!text.contains("Fideos de ayer"));
         }
         assert_eq!(fs::read_to_string(out.join("datos/coto.json")).unwrap(), "[]");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn categories_become_shortcuts_and_a_filter() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-cat-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let offer = |chain: &str, id: &str, name: &str, category: Option<&str>| {
+            let category = category.map(|c| format!(r#","category":"{c}""#)).unwrap_or_default();
+            format!(
+                r#"{{"chain":"{chain}","store":"x","id":"{id}","ean":null,"name":"{name}","price":100,"list_price":200,"discount_pct":50,"promo":null,"url":null,"image":null,"source":"web"{category}}}"#
+            )
+        };
+        let carrefour = [offer("carrefour", "1", "Vacio x kg", Some("carnes")), offer("carrefour", "2", "Alimento gato carne", Some("mascotas"))];
+        fs::write(data.join("offers/carrefour.json"), format!("[{}]", carrefour.join(","))).unwrap();
+        fs::write(data.join("offers/coto.json"), format!("[{}]", offer("coto", "3", "Higado X KG", Some("carnes")))).unwrap();
+        fs::write(data.join("offers/dar.json"), format!("[{}]", offer("dar", "4", "YERBA", None))).unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let home = fs::read_to_string(out.join("index.html")).unwrap().replace("&#x2f;", "/");
+        // Only categories with offers today, with their count.
+        assert!(home.contains(r#"<a href="/?categoria=carnes#buscar" data-quick>Carnes y pescados <span class="quick-words-count">2<"#));
+        assert!(home.contains("/?categoria=mascotas#buscar"));
+        assert!(!home.contains("/?categoria=limpieza#buscar"));
+        assert!(home.contains(r#"<option value="carnes">Carnes y pescados</option>"#));
+        // DAR has no categories: no filter on its page; Coto's page has it.
+        assert!(!fs::read_to_string(out.join("dar/index.html")).unwrap().contains(r#"id="f-cat""#));
+        assert!(fs::read_to_string(out.join("coto/index.html")).unwrap().contains(r#"id="f-cat""#));
+        // The search index and the open data carry the category.
+        let search: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/buscar.json")).unwrap()).unwrap();
+        let category_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[9].clone()).unwrap();
+        assert_eq!(category_of("coto:3"), "carnes");
+        assert_eq!(category_of("dar:4"), serde_json::Value::Null);
+        let csv = fs::read_to_string(out.join("datos/hoy.csv")).unwrap();
+        assert!(csv.lines().next().unwrap().ends_with(",url,categoria"));
+        assert!(csv.lines().any(|line| line.starts_with("coto,") && line.ends_with(",carnes")));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn data_without_categories_shows_no_category_ui() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-nocat-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        // Written before categories existed: no "category" key at all.
+        let old = r#"[{"chain":"coto","store":"x","id":"1","ean":null,"name":"Fideos","price":100,"list_price":200,"discount_pct":50,"promo":null,"url":null,"image":null,"source":"web"}]"#;
+        fs::write(data.join("offers/coto.json"), old).unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let home = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(!home.contains("Por categoría"));
+        assert!(!home.contains(r#"id="f-cat""#));
         fs::remove_dir_all(&root).unwrap();
     }
 }

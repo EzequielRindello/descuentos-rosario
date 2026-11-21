@@ -62,6 +62,10 @@ pub struct Offer {
     pub url: Option<String>,
     pub image: Option<String>,
     pub source: Source,
+    /// Site category id (see `categories` in `config/stores.toml`). None for DAR, for products
+    /// no category matched and for data written before categories existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
 }
 
 /// Converts a peso amount to cents, rejecting non-positive or non-finite values.

@@ -17,7 +17,7 @@
 {% endif %}{% if quick.nxm %}<li><a class="quick-card quick-sun" href="/?promo=nxm#buscar" data-quick><span class="quick-big">2x1</span> <span class="quick-label">y 3x2</span> <span class="quick-count">{{ quick.nxm }} ofertas {{ icon.arrow_right() }}</span></a></li>
 {% endif %}{% if quick.second %}<li><a class="quick-card quick-soft" href="/?promo=2da#buscar" data-quick><span class="quick-big">2da</span> <span class="quick-label">unidad con descuento</span> <span class="quick-count">{{ quick.second }} ofertas {{ icon.arrow_right() }}</span></a></li>
 {% endif %}</ul>
-{% endif %}{% if quick.words %}<p class="quick-words"><span>Probá con:</span> {% for w in quick.words %}<a href="/?q={{ w.query }}#buscar" data-quick>{{ w.word }} <span class="quick-words-count">{{ w.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
+{% endif %}{% if quick.categories %}<p class="quick-words"><span>Por categoría:</span> {% for c in quick.categories %}<a href="/?categoria={{ c.id }}#buscar" data-quick>{{ c.name }} <span class="quick-words-count">{{ c.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
 {% endif %}</div></div>
 </section>
 

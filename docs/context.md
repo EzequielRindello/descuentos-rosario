@@ -22,7 +22,8 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 
 - `data/offers/<cadena>.json`: un array con un objeto `Offer` por línea, ordenado por `id`. Así el commit diario solo muestra cambios reales de precio.
 - Los precios van en **centavos** (`price`, `list_price`), enteros, para evitar errores de redondeo.
-- Campos de `Offer`: `chain`, `store`, `id` (id propio de la cadena), `ean`, `name`, `price`, `list_price`, `discount_pct`, `promo`, `url`, `image`, `source` (`web`).
+- Campos de `Offer`: `chain`, `store`, `id` (id propio de la cadena), `ean`, `name`, `price`, `list_price`, `discount_pct`, `promo`, `url`, `image`, `source` (`web`), `category` (id de categoría del sitio; no está en DAR ni en los datos anteriores a v0.1.1).
+- Categorías: las define `[[categories]]` en `config/stores.toml` (id, nombre y de dónde sale en cada cadena). Se asignan al scrapear: Carrefour por el slug de categoría que se está leyendo (si un producto sale en dos, gana el primero de `carrefour.categories`); Coto por `allAncestors.displayName`, que es un conjunto de nombres sin orden (sección, subcategorías y "CotoDigital"): primero se buscan subcategorías (`coto`), después secciones (`coto_section`), y gana la primera categoría de la lista que coincide. Coto avisa en el log cuántas ofertas quedaron sin categoría. Árbol de Coto revisado el 21/11/2026: secciones Almacén, Bebidas, Frescos, Congelados, Limpieza y Perfumería (más las excluidas); "Galletitas" está dentro de "Panaderia" y "Hamburguesas y Milanesas" dentro de Congelados. DAR no publica categorías en su listado.
 - `data/run.json`: resumen de la última corrida por cadena (`ok`, `offers`, `seconds`, `error`). Si una cadena falla (error o 0 ofertas), su archivo de ofertas del día anterior queda como está en `data/`, pero el sitio la publica vacía con un aviso (ver abajo).
 - El detector descarta `list_price` menores o iguales al precio, o más de 5 veces mayores (caso Jumbo), y calcula `discount_pct` truncado (nunca muestra más descuento que el real; 35,5% es 35, como el "35%Dto" de Coto).
 
@@ -32,12 +33,12 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 
 | Ruta | Qué es |
 | --- | --- |
-| `/` | Portada: búsqueda con filtros, guardados, las 20 mejores ofertas de cada cadena. Los filtros van en la URL: `q` (texto), `cadena` (ids separados por coma), `min` (descuento mínimo), `promo` (`rebaja`, `nxm`, `2da`, `varias`, según el texto de la promo) y `orden` (`precio`, `nombre`; vacío = descuento). |
+| `/` | Portada: búsqueda con filtros, guardados, las 20 mejores ofertas de cada cadena. Los filtros van en la URL: `q` (texto), `cadena` (ids separados por coma), `categoria` (id de categoría), `min` (descuento mínimo), `promo` (`rebaja`, `nxm`, `2da`, `varias`, según el texto de la promo) y `orden` (`precio`, `nombre`; vacío = descuento). |
 | `/<cadena>/`, `/<cadena>/pagina/N/` | Todas las ofertas de la cadena, de a 100, ordenadas por descuento. |
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
 | `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
-| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura]`. |
+| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura, categoria]`. |
 | `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |

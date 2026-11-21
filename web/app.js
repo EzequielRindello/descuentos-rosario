@@ -164,7 +164,7 @@ function setupFreshness() {
 
 // ---------- Data ----------
 
-// Rows of /datos/buscar.json: [key, chainName, name, price, listPrice, discountPct, promo, url].
+// Rows of /datos/buscar.json: [key, chainName, name, price, listPrice, discountPct, promo, url, image, category].
 let indexPromise = null;
 let indexReady = false;
 function loadIndex() {
@@ -286,7 +286,7 @@ function renderList(rows) {
 
 // ---------- Search and filters ----------
 // Everything runs over /datos/buscar.json (all of today's offers). The filters live in the URL
-// (?q=&cadena=&min=&promo=&desde=&hasta=&orden=) so a filtered view can be shared or restored with
+// (?q=&cadena=&categoria=&min=&promo=&desde=&hasta=&orden=) so a filtered view can be shared or restored with
 // "back". On a chain page the form has a single hidden chain box: searches stay inside that chain
 // and, with no filter, the page shows its own server-rendered list again.
 
@@ -300,6 +300,19 @@ function promoKind(row) {
   if (/2da/i.test(promo)) return '2da';
   if (/llevando/i.test(promo)) return 'varias';
   return row[5] ? 'rebaja' : '';
+}
+
+// The "Categoría" select is missing on DAR's page and before the data has categories.
+function categorySelect() {
+  return $('#f-cat');
+}
+
+// Back to the defaults: every select and price field empty (the chain boxes are reset apart).
+function clearFilterFields() {
+  ['#f-cat', '#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => {
+    const field = $(id);
+    if (field) field.value = '';
+  });
 }
 
 function chainBoxes() {
@@ -373,6 +386,7 @@ function readFilters() {
     q: $('#q').value,
     chains,
     allChains: chains.length === chainBoxes().length,
+    cat: categorySelect() ? categorySelect().value : '',
     min: Number($('#f-min').value) || 0,
     promo: $('#f-promo').value,
     from: price.from,
@@ -393,6 +407,7 @@ function filtersFromUrl() {
     const select = $(id);
     if ([...select.options].some((option) => option.value === value)) select.value = value;
   };
+  if (categorySelect()) setSelect('#f-cat', params.get('categoria') || '');
   setSelect('#f-min', params.get('min') || '');
   setSelect('#f-promo', params.get('promo') || '');
   setSelect('#f-orden', params.get('orden') || '');
@@ -408,6 +423,7 @@ function filtersToUrl(filters, push) {
   const params = new URLSearchParams();
   if (filters.q.trim()) params.set('q', filters.q.trim());
   if (!filters.allChains) params.set('cadena', filters.chains.join(','));
+  if (filters.cat) params.set('categoria', filters.cat);
   if (filters.min) params.set('min', String(filters.min));
   if (filters.promo) params.set('promo', filters.promo);
   if (filters.from) params.set('desde', String(filters.from));
@@ -476,15 +492,16 @@ function setupSearch() {
     if (!event.target.closest('button[data-clear-all]')) return;
     $('#q').value = '';
     chainBoxes().forEach((box) => (box.checked = true));
-    ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
+    clearFilterFields();
     updateFilterCount();
     update(true);
     $('#q').focus();
   });
-  // "Limpiar filtros": back to every chain, any discount, promo and price, default order. Keeps the text.
+  // "Limpiar filtros": back to every chain and category, any discount, promo and price, default
+  // order. Keeps the text.
   $('#limpiar-filtros').addEventListener('click', () => {
     chainBoxes().forEach((box) => (box.checked = true));
-    ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
+    clearFilterFields();
     updateFilterCount();
     update(true);
     $('#q').focus();
@@ -497,7 +514,7 @@ function setupSearch() {
   };
   syncPanel();
   wide.addEventListener('change', syncPanel);
-  // Shortcuts in the empty state ("50% o más", "2x1 y 3x2", "yerba"...): apply them in place
+  // Shortcuts in the empty state ("50% o más", "2x1 y 3x2", a category...): apply them in place
   // instead of reloading the page. Delegated, because the empty state is taken out and put back.
   results.addEventListener('click', (event) => {
     const link = event.target.closest('a[data-quick]');
@@ -541,7 +558,7 @@ function updateFilterCount() {
   const counter = $('#filtros-cuenta');
   if (!counter) return;
   const filters = readFilters();
-  const active = [!filters.allChains, filters.min, filters.promo, filters.from || filters.to, filters.orden].filter(Boolean).length;
+  const active = [!filters.allChains, filters.cat, filters.min, filters.promo, filters.from || filters.to, filters.orden].filter(Boolean).length;
   counter.textContent = active ? '(' + active + ')' : '';
   const clear = $('#limpiar-filtros');
   if (clear) clear.hidden = active === 0;
@@ -579,7 +596,7 @@ async function renderResults(filters, results) {
   const render = ++renderId;
   const words = searchWords(filters.q);
   // On a chain page, a different order alone also needs the full list (the page only has 100).
-  const filtering = words.length || !filters.allChains || filters.min || filters.promo || filters.from || filters.to || (isChainPage() && filters.orden);
+  const filtering = words.length || !filters.allChains || filters.cat || filters.min || filters.promo || filters.from || filters.to || (isChainPage() && filters.orden);
   if (!filtering) {
     // Back to what the server rendered (shortcuts, or the chain's list). Its save buttons may be
     // stale: they were detached while results were shown.
@@ -621,6 +638,7 @@ async function renderResults(filters, results) {
   const matches = found
     .map((entry) => entry.row)
     .filter((row) => chains.has(row[0].split(':')[0]))
+    .filter((row) => !filters.cat || row[9] === filters.cat)
     .filter((row) => !filters.min || (row[5] || 0) >= filters.min)
     .filter((row) => !filters.promo || promoKind(row) === filters.promo)
     .filter((row) => !filters.from || row[3] >= filters.from * 100)
@@ -651,6 +669,9 @@ async function renderResults(filters, results) {
     note.className = 'results-hint';
     note.textContent = 'DAR no publica precio anterior: no aparece al filtrar por descuento.';
     parts.push(note);
+  }
+  if (filters.cat && chains.has('dar')) {
+    parts.push(el('p', 'results-hint', 'DAR no publica categorías: no aparece al filtrar por categoría. Buscalo por nombre.'));
   }
   // How to see the same price on each chain's site, for the chains in the shown results (a chain
   // page already says it above the form).

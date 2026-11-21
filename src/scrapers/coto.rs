@@ -9,7 +9,7 @@ use anyhow::{Context, Result, bail};
 use regex::Regex;
 use serde_json::Value;
 
-use crate::config::CotoConfig;
+use crate::config::{Category, CotoConfig, coto_category};
 use crate::http::Http;
 use crate::model::{Chain, Offer, Source, pesos_to_cents};
 
@@ -19,7 +19,7 @@ const OFFER_DIMENSION: &str = "product.tipoOferta";
 /// Safety stop in case pagination misbehaves.
 const MAX_PAGES: u32 = 200;
 
-pub async fn scrape(config: &CotoConfig, http: &Http) -> Result<Vec<Offer>> {
+pub async fn scrape(config: &CotoConfig, categories: &[Category], http: &Http) -> Result<Vec<Offer>> {
     let filter = store_filter(&config.store_id);
     let offer_types = discover_offer_types(http, &filter).await?;
     if offer_types.is_empty() {
@@ -53,7 +53,8 @@ pub async fn scrape(config: &CotoConfig, http: &Http) -> Result<Vec<Offer>> {
                 excluded += 1;
                 continue;
             }
-            if let Some(offer) = parse_record(record, &config.store) {
+            if let Some(mut offer) = parse_record(record, &config.store) {
+                offer.category = coto_category(categories, &ancestors(record));
                 offers.entry(offer.id.clone()).or_insert(offer);
             }
         }
@@ -63,21 +64,28 @@ pub async fn scrape(config: &CotoConfig, http: &Http) -> Result<Vec<Offer>> {
         }
     }
     tracing::info!("coto: {excluded} records skipped as non-grocery categories");
+    // A Coto category that was renamed or added shows up here: map it in config/stores.toml.
+    let uncategorized = offers.values().filter(|o| o.category.is_none()).count();
+    if uncategorized > 0 {
+        tracing::warn!("coto: {uncategorized} offers without a site category (check categories in config/stores.toml)");
+    }
     Ok(offers.into_values().collect())
 }
 
-/// True when any of the product's ancestor categories is in the exclusion list.
-fn is_excluded(record: &Value, exclude: &[String]) -> bool {
-    if exclude.is_empty() {
-        return false;
-    }
+/// Names of all the product's ancestor categories (an unordered set, sections included).
+fn ancestors(record: &Value) -> Vec<&str> {
     record
         .pointer("/records/0/attributes/allAncestors.displayName")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
-        .any(|ancestor| exclude.iter().any(|e| e == ancestor))
+        .collect()
+}
+
+/// True when any of the product's ancestor categories is in the exclusion list.
+fn is_excluded(record: &Value, exclude: &[String]) -> bool {
+    ancestors(record).iter().any(|ancestor| exclude.iter().any(|e| e == ancestor))
 }
 
 /// Endeca record filter: products available in the given store (1004 = available).
@@ -225,6 +233,7 @@ fn parse_record(record: &Value, store: &str) -> Option<Offer> {
         url,
         image: attr(attributes, "product.mediumImage.url").map(str::to_string),
         source: Source::Web,
+        category: None,
     })
 }
 

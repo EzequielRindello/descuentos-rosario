@@ -46,6 +46,7 @@ mod tests {
             url: None,
             image: None,
             source: Source::Web,
+            category: None,
         }
     }
 
