@@ -4,7 +4,7 @@ Leé esto primero si llegás sin contexto (persona o agente). Dice qué queremos
 
 **Regla:** este archivo se actualiza en cada cambio que importe. Cada tarea terminada cita el commit que la cerró (hash corto). Los commits se hacen a mano; el hash se carga después. Si algo de acá no coincide con el código o con `git log`, manda el código: corregí este archivo.
 
-Última actualización: 13/11/2026.
+Última actualización: 21/11/2026.
 
 ## Qué es
 
@@ -195,6 +195,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 13/11/2026 | `main` sin ruleset ni rama `development`; el bot sigue pusheando `data/` directo | En un repo público solo pushea quien tiene permiso de escritura, y es solo el mantenedor: los demás tienen que hacer un fork y abrir un PR que él mergea. Los workflows son solo `workflow_dispatch`, así que un PR de un fork no corre nada ni toca los secrets. Reemplaza la decisión del 12/11 de la deploy key. |
 | 13/11/2026 | Se lanza sin revisión de un abogado; los términos y la privacidad los endureció un agente, priorizando cubrir al proyecto | Pedido del mantenedor: no hay presupuesto para un abogado y se lanza el mismo día. Riesgo aceptado: no es asesoramiento legal, y los términos de uso de las cadenas no se pudieron leer. |
 | 13/11/2026 | Sin cron: `daily.yml` se reemplaza por tres workflows de scrape, uno por cadena, y uno de deploy, todos a mano. Los scrapes commitean su archivo y su línea de `run.json` (con reintento del push, porque pueden correr a la vez) y el deploy publica lo que hay en `main` | El cron `0 10 * * *` salió 7 horas y media tarde los tres días (11, 12 y 13/11). Si no corre a horario, no sirve automatizado. Separado, una cadena caída (issue #2, DAR) se vuelve a correr sola y se publica recién cuando las tres están bien. Reemplaza la decisión del 10/11 de correr todo junto y a diario. |
+| 21/11/2026 | Cada release se trabaja en su rama (`release/v0.1.1`) y entra a `main` con un PR; al mergear, tag y GitHub Release. Sin rama `development`. El bot sigue commiteando `data/` en `main`, y la rama de release trae `main` cada tanto | El deploy publica lo que hay en `main`: con código a medias en `main`, cualquier deploy (y uno automático, si vuelve) lo publicaría. Con un solo mantenedor y una release a la vez, una `development` permanente da el mismo trabajo sin sumar nada. El PR deja el diff de la release para revisar. Completa la decisión del 13/11 (`main` sigue sin ruleset). |
 
 ## Próximos pasos
 
