@@ -23,7 +23,12 @@
 
 <section id="guardados" hidden>
 <h2>Tus guardados</h2>
-<p class="lead">Se guardan solo en este dispositivo.</p>
+<p class="lead">Se guardan en este dispositivo.{% if site.push_url and site.vapid_public_key %} Si activás los avisos, también nos llegan los códigos de esos productos (ver <a href="/privacidad/">Privacidad</a>).{% endif %}</p>
+{% if site.push_url and site.vapid_public_key %}<div id="avisos" data-push-url="{{ site.push_url }}" data-vapid-key="{{ site.vapid_public_key }}" hidden>
+<p><button type="button" id="avisos-boton" class="btn">Avisarme cuando vuelvan a estar en oferta</button></p>
+<p id="avisos-estado" class="field-hint" aria-live="polite"></p>
+</div>
+{% endif %}<p id="volvieron" class="note" hidden></p>
 <div id="guardados-lista"></div>
 </section>
 

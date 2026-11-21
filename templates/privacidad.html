@@ -3,7 +3,7 @@
 <article class="prose info info-privacy">
 <header class="info-hero">
 <h1>Privacidad</h1>
-<p>Corto: no te pedimos datos, no te seguimos y no vendemos nada. Última actualización: 13/11/2026.</p>
+<p>Corto: no te pedimos datos, no te seguimos y no vendemos nada. Última actualización: {% if site.push_url and site.vapid_public_key %}21/11/2026{% else %}13/11/2026{% endif %}.</p>
 </header>
 
 <div class="info-grid">
@@ -13,15 +13,20 @@
 <li>No hay cuentas, registro ni formularios.</li>
 <li>No usamos cookies.</li>
 <li>No usamos herramientas de analítica, publicidad ni rastreadores de terceros. Lo único que se carga desde otro sitio son las fotos de los productos (ver abajo).</li>
-<li>No vendemos ni compartimos datos, porque no los tenemos.</li>
+<li>No vendemos ni compartimos datos{% if site.push_url and site.vapid_public_key %}. Lo único que guardamos es lo que hace falta para los avisos, si los activás (ver abajo){% else %}, porque no los tenemos{% endif %}.</li>
 </ul>
 </section>
 
 <section class="info-card">
 <h2>Qué queda en tu dispositivo</h2>
-<p>Las ofertas que marcás como guardadas, si elegiste modo claro u oscuro, y la copia para usar el sitio sin señal se guardan en tu navegador (almacenamiento local y caché). Nunca nos llegan. Las podés borrar cuando quieras desde la configuración del navegador, borrando los datos de este sitio.</p>
+<p>Las ofertas que marcás como guardadas, si elegiste modo claro u oscuro, y la copia para usar el sitio sin señal se guardan en tu navegador (almacenamiento local y caché). {% if site.push_url and site.vapid_public_key %}No nos llegan, salvo que actives los avisos (ver abajo).{% else %}Nunca nos llegan.{% endif %} Las podés borrar cuando quieras desde la configuración del navegador, borrando los datos de este sitio.</p>
 </section>
-
+{% if site.push_url and site.vapid_public_key %}
+<section class="info-card">
+<h2>Avisos de ofertas</h2>
+<p>Son opcionales: se activan desde "Tus guardados". Si los activás, guardamos la dirección que tu navegador crea para recibir notificaciones (no dice quién sos) y los códigos de los productos que guardaste. Los usamos solo para avisarte cuando alguno vuelve a estar en oferta. Se guardan en Cloudflare y se borran cuando desactivás los avisos, cuando dejás de tener guardados o cuando tu navegador da de baja las notificaciones. Las notificaciones las entrega el servicio de tu navegador (Google, Apple, Mozilla o Microsoft).</p>
+</section>
+{% endif %}
 <section class="info-card">
 <h2>El servidor</h2>
 <p>El sitio está alojado en Cloudflare. Como cualquier servidor web, Cloudflare procesa datos técnicos de cada visita (por ejemplo, la dirección IP y el tipo de navegador) para entregar las páginas y protegerlas de ataques. Nosotros no usamos esos datos para identificarte. Más información en la <a href="https://www.cloudflare.com/es-es/privacypolicy/" rel="noopener">política de privacidad de Cloudflare</a>.</p>

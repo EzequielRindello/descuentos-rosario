@@ -14,7 +14,8 @@ Referencia técnica del proyecto: stack, reglas y cómo se lee cada fuente. Dón
 | PWA | `manifest.webmanifest` + `sw.js` |
 | Hosting | Cloudflare Workers con static assets, `wrangler deploy` |
 | Corrida diaria | GitHub Actions: `daily.yml` scrapea las tres cadenas y publica; lo dispara a las 12:00 (hora argentina) el Worker `ofertas-rosario-cron` (`cron/`, Cron Trigger `0 15 * * *` UTC, llama a la API `workflow_dispatch` con un token fine-grained). A mano siguen un workflow de scrape por cadena (`scrape-<cadena>.yml`, commitea su archivo de `data/`) y uno de deploy (`deploy.yml`: genera `dist/` desde `main` y hace `wrangler deploy` con token de API) |
-| Tests | `cargo test` con respuestas de muestra guardadas |
+| Avisos | Web Push (VAPID, RFC 8292) sin contenido desde el Worker `ofertas-rosario-cron` (`cron/src/push.js`): `POST /suscripcion` (`endpoint`, `saved`, `onOffer`), `POST /baja`, `POST /novedades` (lo que volvió, para el texto de la notificación), solo desde el origen del sitio. KV `SUBSCRIPTIONS`: clave `sub:` + SHA-256 del endpoint; valor `endpoint`, `saved`, `onOffer`, `lastReturned`. Cron `30 15 * * *` UTC (12:30): lee `/datos/buscar.json` publicado y avisa a quien tenga un guardado en oferta que antes no estaba; 404/410 del servicio de push borra la suscripción. Endpoints aceptados: FCM, Mozilla, Apple y Windows. El sitio toma `push_url` y `vapid_public_key` de `config/site.toml` (CSP `connect-src` y `__PUSH_URL__` de `sw.js` se arman en el build) |
+| Tests | `cargo test` con respuestas de muestra guardadas; `node --test cron/` para el Worker |
 
 Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, WSL. Los comandos están en `STATUS.md`.
 

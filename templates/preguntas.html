@@ -71,7 +71,7 @@
 
 <section class="info-card">
 <h2>¿Tengo que registrarme? ¿Guardan mis datos?</h2>
-<p>No hace falta registrarse y no guardamos datos tuyos. Lo que marcás como guardado queda solo en tu dispositivo. Más detalles en <a href="/privacidad/">Privacidad</a>.</p>
+<p>No hace falta registrarse y no guardamos datos tuyos. Lo que marcás como guardado queda en tu dispositivo{% if site.push_url and site.vapid_public_key %}; solo si activás los avisos nos llegan los códigos de esos productos, para avisarte cuando vuelven a estar en oferta{% endif %}. Más detalles en <a href="/privacidad/">Privacidad</a>.</p>
 </section>
 
 <section class="info-card">
@@ -80,7 +80,12 @@
 </section>
 
 <section class="info-card">
-<h2>¿Funciona sin señal?</h2>
+{% if site.push_url and site.vapid_public_key %}<h2>¿Me pueden avisar cuando algo vuelve a estar en oferta?</h2>
+<p>Sí. Guardá los productos que te interesan y, en "Tus guardados" de la portada, tocá <b>Avisarme cuando vuelvan a estar en oferta</b>. Te llega una notificación por día como mucho, cerca del mediodía, solo si alguno volvió. En iPhone funciona con la app instalada (iOS 16.4 o más nuevo). Se apaga con el mismo botón.</p>
+</section>
+
+<section class="info-card">
+{% endif %}<h2>¿Funciona sin señal?</h2>
 <p>Sí, con la última versión que abriste con conexión. Fijate la fecha de actualización: sin señal no se pueden traer las ofertas nuevas.</p>
 </section>
 

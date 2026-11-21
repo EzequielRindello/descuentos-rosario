@@ -1,19 +1,40 @@
 {
-  // Worker aparte del sitio: solo dispara la "Corrida del día" (daily.yml) en GitHub Actions.
-  // El Worker del sitio (../wrangler.jsonc) sigue siendo solo archivos estáticos.
-  // Costo: una ejecución por día, muy lejos del límite del plan gratis.
-  // Secret necesario: GITHUB_TOKEN (fine-grained, solo este repo, "Actions: Read and write").
+  // Worker aparte del sitio: dispara la "Corrida del día" (daily.yml) en GitHub Actions y manda los
+  // avisos de "volvió a estar en oferta". El Worker del sitio (../wrangler.jsonc) sigue siendo solo
+  // archivos estáticos.
+  // Costo: dos ejecuciones por día más los pedidos de suscripción, todo dentro del plan gratis
+  // (Workers: 100.000 pedidos por día; KV: 100.000 lecturas y 1.000 escrituras por día).
+  // Secrets: GITHUB_TOKEN (fine-grained, solo este repo, "Actions: Read and write") y
+  // VAPID_PRIVATE_KEY (el JSON que imprime scripts/vapid-keys.mjs).
   // Publicar: npx wrangler@4.155.0 deploy --config cron/wrangler.jsonc
   "name": "ofertas-rosario-cron",
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
-  // No public URL: the Worker only runs on its schedule.
-  "workers_dev": false,
+  // Public URL for the subscriptions sent by the site (https://ofertas-rosario-cron.<cuenta>.workers.dev).
+  // It must match `push_url` in ../config/site.toml and connect-src in ../web/_headers.
+  "workers_dev": true,
   "triggers": {
-    // Cloudflare crons are UTC. Argentina is UTC-3 all year (no daylight saving): 15:00 UTC = 12:00.
-    "crons": ["0 15 * * *"]
+    // Cloudflare crons are UTC. Argentina is UTC-3 all year (no daylight saving):
+    // 15:00 UTC = 12:00, daily run; 15:30 UTC = 12:30, notifications (NOTIFY_CRON in src/index.js).
+    "crons": ["0 15 * * *", "30 15 * * *"]
   },
-  // Logs in the dashboard, to see a rejected dispatch (e.g. an expired token).
+  "vars": {
+    // Only this origin may send subscriptions; the offers index is read from here too.
+    "SITE_URL": "https://ofertas-rosario.rindelloezequiel.workers.dev",
+    // Public half of the VAPID pair (scripts/vapid-keys.mjs). Same value as vapid_public_key in
+    // ../config/site.toml. Empty: no notifications are sent.
+    "VAPID_PUBLIC_KEY": ""
+  },
+  "kv_namespaces": [
+    {
+      // Subscriptions: push endpoint, saved product keys and which of them were on offer last time.
+      // Create it once with: npx wrangler@4.155.0 kv namespace create SUBSCRIPTIONS --config cron/wrangler.jsonc
+      // and paste the id it prints here.
+      "binding": "SUBSCRIPTIONS",
+      "id": "REEMPLAZAR_CON_EL_ID_DEL_NAMESPACE"
+    }
+  ],
+  // Logs in the dashboard, to see a rejected dispatch (e.g. an expired token) or push.
   "observability": {
     "enabled": true
   }

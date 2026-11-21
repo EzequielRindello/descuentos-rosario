@@ -768,6 +768,7 @@ function setupSaved() {
     }
     document.querySelectorAll('button[data-fav="' + CSS.escape(key) + '"]').forEach((b) => syncButton(b, !saved));
     renderSaved();
+    syncAlertsLater();
   });
   renderSaved();
 }
@@ -787,10 +788,9 @@ async function renderSaved() {
     return;
   }
   const byKey = new Map(index.map((entry) => [entry.row[0], entry.row]));
-  // Fill in names for items saved by older versions, while their offer is still listed.
-  if (items.some((item) => !item.name && byKey.has(item.key))) {
-    writeSaved(items.map((item) => (!item.name && byKey.has(item.key) ? { ...item, name: byKey.get(item.key)[2] } : item)));
-  }
+  const updated = trackReturns(items, byKey);
+  if (updated !== items) writeSaved(updated);
+  showReturned(updated, byKey);
   const rows = items.map((item) => byKey.get(item.key)).filter(Boolean);
   const gone = items.filter((item) => !byKey.has(item.key));
   container.replaceChildren();
@@ -805,6 +805,186 @@ async function renderSaved() {
     }
     container.append(note, list);
   }
+}
+
+// Marks each saved item as gone (not on offer) or back (on offer again, with the day of the data
+// that brought it back), and fills in names for items saved by older versions. Returns the same
+// array when nothing changed. A chain missing from today's data (failed scrape) is not "gone".
+function trackReturns(items, byKey) {
+  const day = document.body.dataset.updated || '';
+  const chains = new Set([...byKey.keys()].map((key) => key.split(':')[0]));
+  let changed = false;
+  const next = items.map((item) => {
+    const row = byKey.get(item.key);
+    let result = item;
+    if (!result.name && row) result = { ...result, name: row[2] };
+    if (!row && !result.gone && chains.has(item.key.split(':')[0])) {
+      result = { ...result, gone: true };
+      delete result.back;
+    } else if (row && result.gone && day) {
+      result = { ...result, back: day };
+      delete result.gone;
+    }
+    if (result !== item) changed = true;
+    return result;
+  });
+  return changed ? next : items;
+}
+
+// "Volvió a estar en oferta: ..." above the saved list, for the items that came back with today's data.
+function showReturned(items, byKey) {
+  const note = $('#volvieron');
+  if (!note) return;
+  const day = document.body.dataset.updated || '';
+  const names = items.filter((item) => day && item.back === day && byKey.has(item.key)).map((item) => byKey.get(item.key)[2]);
+  note.hidden = names.length === 0;
+  note.textContent = names.length ? (names.length === 1 ? 'Volvió a estar en oferta: ' : 'Volvieron a estar en oferta: ') + names.join(', ') + '.' : '';
+}
+
+// ---------- Alerts: "volvió a estar en oferta" (Web Push) ----------
+// Optional, from "Tus guardados". The Worker in cron/ keeps, per device, the push endpoint and the
+// keys of the saved offers (no names, no personal data), and once a day (12:30) pushes to the
+// devices where one of them came back on offer. The service worker writes the notification.
+
+const ALERTS_KEY = 'ofertas-rosario:avisos';
+// Last list sent to the Worker: it is sent again only when it changes.
+const ALERTS_SENT_KEY = 'ofertas-rosario:avisos-enviado';
+const ALERTS_BLOCKED = 'Las notificaciones están bloqueadas para este sitio. Para recibir avisos, permitilas desde la configuración del navegador.';
+
+function readFlag(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeFlag(key, value) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Storage blocked: the alerts state just doesn't persist.
+  }
+}
+
+function alertsOn() {
+  return readFlag(ALERTS_KEY) === '1' && 'Notification' in window && Notification.permission === 'granted';
+}
+
+function pushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+// The VAPID public key travels as base64url; the browser wants its raw bytes.
+function vapidKeyBytes(base64url) {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (base64url.length % 4)) % 4);
+  return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+}
+
+async function postAlerts(path, body) {
+  const response = await fetch($('#avisos').dataset.pushUrl.replace(/\/$/, '') + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+}
+
+// The browser's subscription, created when there is none (or the browser dropped it).
+async function ensureSubscription() {
+  const registration = await navigator.serviceWorker.ready;
+  const current = await registration.pushManager.getSubscription();
+  if (current) return current;
+  return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKeyBytes($('#avisos').dataset.vapidKey) });
+}
+
+// Sends the saved keys, plus which of them are on offer today (so saving something already on
+// offer never triggers an alert). Skipped when the list did not change since the last time.
+async function syncAlerts(subscription) {
+  const keys = readSaved().map((item) => item.key);
+  const sent = JSON.stringify({ endpoint: subscription.endpoint, saved: keys });
+  if (readFlag(ALERTS_SENT_KEY) === sent) return;
+  let onOffer = [];
+  try {
+    const live = new Set((await loadIndex()).map((entry) => entry.row[0]));
+    onOffer = keys.filter((key) => live.has(key));
+  } catch {
+    // Without today's offers the Worker keeps its own state for known keys.
+  }
+  await postAlerts('/suscripcion', { endpoint: subscription.endpoint, saved: keys, onOffer });
+  writeFlag(ALERTS_SENT_KEY, sent);
+}
+
+// Called after the saved list changes.
+function syncAlertsLater() {
+  if (alertsOn() && pushSupported()) ensureSubscription().then(syncAlerts).catch(() => {});
+}
+
+function showAlertsState(message) {
+  const button = $('#avisos-boton');
+  const on = alertsOn();
+  button.textContent = on ? 'Desactivar los avisos' : 'Avisarme cuando vuelvan a estar en oferta';
+  button.setAttribute('aria-pressed', String(on));
+  const status = $('#avisos-estado');
+  status.textContent =
+    message ||
+    (on
+      ? 'Avisos activados: una vez por día, cerca de las 12:30, si alguno vuelve a estar en oferta.'
+      : Notification.permission === 'denied'
+        ? ALERTS_BLOCKED
+        : '');
+}
+
+function setupAlerts() {
+  const box = $('#avisos');
+  if (!box) return;
+  if (!pushSupported()) {
+    // iPhone: Web Push exists only in the installed app (iOS 16.4 or newer).
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !isInstalledApp()) {
+      box.hidden = false;
+      $('#avisos-boton').hidden = true;
+      $('#avisos-estado').textContent = 'En iPhone, los avisos funcionan con la app instalada ("¡Instalá la app!", arriba).';
+    }
+    return;
+  }
+  box.hidden = false;
+  showAlertsState();
+  // Keeps the Worker in step: subscribes again if the browser dropped it and sends a changed list.
+  if (alertsOn()) ensureSubscription().then(syncAlerts).catch(() => {});
+
+  const button = $('#avisos-boton');
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      if (alertsOn()) {
+        const subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+        if (subscription) {
+          // If the Worker can't be reached, the push service rejects the next push and the Worker
+          // drops the subscription then.
+          await postAlerts('/baja', { endpoint: subscription.endpoint }).catch(() => {});
+          await subscription.unsubscribe();
+        }
+        writeFlag(ALERTS_KEY, null);
+        writeFlag(ALERTS_SENT_KEY, null);
+        showAlertsState('Avisos desactivados.');
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showAlertsState(permission === 'denied' ? ALERTS_BLOCKED : 'No se activaron: hace falta permitir las notificaciones.');
+          return;
+        }
+        writeFlag(ALERTS_SENT_KEY, null);
+        await syncAlerts(await ensureSubscription());
+        writeFlag(ALERTS_KEY, '1');
+        showAlertsState();
+      }
+    } catch {
+      showAlertsState('No se pudo cambiar los avisos. Probá de nuevo en un rato.');
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 // ---------- Back to top ----------
@@ -877,4 +1057,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFreshness();
   setupSearch();
   setupSaved();
+  setupAlerts();
 });

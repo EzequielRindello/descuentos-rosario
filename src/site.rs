@@ -31,6 +31,12 @@ pub struct SiteConfig {
     /// Public source repository URL (linked in the footer). Hidden when empty.
     #[serde(default)]
     pub repo: String,
+    /// Worker that receives the push subscriptions (`cron/`). Empty: no alerts button.
+    #[serde(default)]
+    pub push_url: String,
+    /// Public VAPID key (base64url) the browser subscribes with. Empty: no alerts button.
+    #[serde(default)]
+    pub vapid_public_key: String,
 }
 
 impl SiteConfig {
@@ -216,7 +222,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "noindex": true,
     })))?;
 
-    write_static_assets(out_dir, &chain_views)?;
+    write_static_assets(out_dir, &chain_views, &site.push_url)?;
     write_seo_files(out_dir, site, &chain_views, &sitemap, &updated)?;
     tracing::info!("site: {} pages, {total} offers -> {}", sitemap.len(), out_dir.display());
     Ok(())
@@ -567,7 +573,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
     Ok(())
 }
 
-fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
+fn write_static_assets(out_dir: &Path, chains: &[ChainView], push_url: &str) -> Result<()> {
     fs::write(out_dir.join("app.js"), include_str!("../web/app.js"))?;
     fs::write(out_dir.join("styles.css"), include_str!("../web/styles.css"))?;
     fs::write(out_dir.join("theme.js"), include_str!("../web/theme.js"))?;
@@ -577,7 +583,9 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     fs::write(fonts.join("inter-latin-wght.woff2"), include_bytes!("../web/fonts/inter-latin-wght.woff2"))?;
     fs::write(fonts.join("OFL.txt"), include_str!("../web/fonts/OFL.txt"))?;
     fs::write(out_dir.join("manifest.webmanifest"), include_str!("../web/manifest.webmanifest"))?;
-    fs::write(out_dir.join("_headers"), include_str!("../web/_headers"))?;
+    // The page and the service worker talk to the alerts Worker: its origin joins connect-src.
+    let push_origin = reqwest::Url::parse(push_url).ok().map(|u| format!(" {}", u.origin().ascii_serialization())).unwrap_or_default();
+    fs::write(out_dir.join("_headers"), include_str!("../web/_headers").replace("connect-src 'self'", &format!("connect-src 'self'{push_origin}")))?;
     let icons = out_dir.join("icons");
     fs::create_dir_all(&icons)?;
     fs::write(icons.join("icon-192.png"), include_bytes!("../web/icons/icon-192.png"))?;
@@ -599,7 +607,10 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     ];
     precache.extend(chains.iter().map(|c| format!("/{}/", c.id)));
     let version = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-    let sw = include_str!("../web/sw.js").replace("__VERSION__", &version).replace("__PRECACHE__", &serde_json::to_string(&precache)?);
+    let sw = include_str!("../web/sw.js")
+        .replace("__VERSION__", &version)
+        .replace("__PRECACHE__", &serde_json::to_string(&precache)?)
+        .replace("__PUSH_URL__", push_url.trim_end_matches('/'));
     fs::write(out_dir.join("sw.js"), sw)?;
     Ok(())
 }
@@ -891,6 +902,33 @@ mod tests {
         let csv = fs::read_to_string(out.join("datos/hoy.csv")).unwrap();
         assert!(csv.lines().next().unwrap().ends_with(",url,categoria"));
         assert!(csv.lines().any(|line| line.starts_with("coto,") && line.ends_with(",carnes")));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn alerts_appear_only_when_configured() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-push-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        fs::write(data.join("offers/coto.json"), "[]").unwrap();
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let mut site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+
+        site.push_url = String::new();
+        site.vapid_public_key = String::new();
+        build(&data, &out, &site, &stores).unwrap();
+        assert!(!fs::read_to_string(out.join("index.html")).unwrap().contains(r#"id="avisos""#));
+        assert!(fs::read_to_string(out.join("_headers")).unwrap().contains("connect-src 'self';"));
+        assert!(!fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("Avisos de ofertas"));
+
+        site.push_url = "https://avisos.example.workers.dev/".into();
+        site.vapid_public_key = "BPUBLICA".into();
+        build(&data, &out, &site, &stores).unwrap();
+        let home = fs::read_to_string(out.join("index.html")).unwrap().replace("&#x2f;", "/");
+        assert!(home.contains(r#"data-push-url="https://avisos.example.workers.dev/" data-vapid-key="BPUBLICA""#));
+        assert!(fs::read_to_string(out.join("_headers")).unwrap().contains("connect-src 'self' https://avisos.example.workers.dev;"));
+        assert!(fs::read_to_string(out.join("sw.js")).unwrap().contains("const PUSH_URL = 'https://avisos.example.workers.dev';"));
+        assert!(fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("Avisos de ofertas"));
         fs::remove_dir_all(&root).unwrap();
     }
 
