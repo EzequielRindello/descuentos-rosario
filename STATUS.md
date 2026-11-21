@@ -34,7 +34,13 @@ Primera corrida por cron (11/11/2026, run `43069628912`, evento `schedule`, con 
 
 Issue #2 (13/11/2026, run `43472763377`): DAR no respondió desde el runner (`tcp connect error: Connection timed out` en los 3 intentos, en 2 minutos). 40 minutos antes había andado desde GitHub y desde local respondía bien: fue un corte del sitio, no del scraper. Con los scrapes separados, una cadena que falla se vuelve a correr sola antes de publicar.
 
-**Lanzado el 13/11/2026 (`v0.1.0`):** repo público y sitio en producción. **Próximo paso:** las features de "Próximas releases", cuando el mantenedor las pida.
+**Lanzado el 13/11/2026 (`v0.1.0`):** repo público y sitio en producción.
+
+**En curso: `v0.1.1` en la rama `release/v0.1.1`** (sin mergear a `main`, nada publicado). Hecho: corrida automática a las 12 (`daily.yml` + Worker `cron/`), categorías propias, avisos de "volvió a estar en oferta" (código listo, sin poner en marcha). **Próximos pasos:**
+1. Poner en marcha los avisos (pasos en "Cómo hacer la corrida del día"): crear el KV, pegar su id en `cron/wrangler.jsonc`, cargar las claves VAPID (pública en `cron/wrangler.jsonc` y `config/site.toml`, privada como secret) y `push_url`. **Mientras `cron/wrangler.jsonc` tenga el id de KV de ejemplo, publicar el Worker falla** (también el disparo de las 12): no republicarlo hasta completar esto.
+2. Probar el push real en el celu (en la PC, Chrome no pudo registrarse en el servicio de push). Revisar a 390 px las categorías y el botón de avisos.
+3. Proponer otras features plausibles para la release (solo propuesta).
+4. PR `release/v0.1.1` → `main`, merge, tag `v0.1.1`, GitHub Release y deploy manual. Después: verificar `daily.yml` a mano y el disparo de las 12.
 
 ## Cómo hacer la corrida del día
 
@@ -309,6 +315,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `12db8d6` | 21/11/2026 | Avisos de "volvió a estar en oferta": Web Push desde el Worker `cron/` (KV, VAPID, 12:30) y aviso dentro de la app. Código listo, sin poner en marcha. En `release/v0.1.1`. |
 | `f4752fa` | 21/11/2026 | Categorías propias: `Offer.category`, recuadros "Por categoría", filtro y datos abiertos. En `release/v0.1.1`. |
 | `d3b55ab` | 21/11/2026 | Corrida del día automática: `daily.yml` y Worker `ofertas-rosario-cron` (12:00 hora argentina). En `release/v0.1.1`. |
 | `60f0a97` | 21/11/2026 | Flujo de ramas por release (rama + PR, sin `development`). En `release/v0.1.1`. |
