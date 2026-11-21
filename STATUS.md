@@ -38,7 +38,11 @@ Issue #2 (13/11/2026, run `43472763377`): DAR no respondió desde el runner (`tc
 
 ## Cómo hacer la corrida del día
 
-Todo se corre a mano desde la pestaña Actions de GitHub (botón "Run workflow"), sin cron:
+Automática (desde v0.1.1): todos los días a las 12:00 (hora argentina) el Worker `ofertas-rosario-cron` (`cron/`) dispara **Corrida del día** (`daily.yml`): los tres scrapes a la vez y después Publicar, aunque una cadena falle (esa sale sin ofertas y abre su issue). Se puede correr a mano igual. Si el disparo falla (por ejemplo, token vencido), queda el error en los logs del Worker en Cloudflare y ese día se corre a mano. El token (`GITHUB_TOKEN`, secret del Worker) vence alrededor del 19/02/2027: renovarlo antes.
+
+Publicar el Worker (una vez, o cuando cambie `cron/`): `npx wrangler@4.155.0 deploy --config cron/wrangler.jsonc`, y cargar el secret con `npx wrangler@4.155.0 secret put GITHUB_TOKEN --config cron/wrangler.jsonc`.
+
+A mano, desde la pestaña Actions de GitHub (botón "Run workflow"):
 
 1. **Scrape Carrefour**, **Scrape Coto** y **Scrape DAR** (`scrape-<cadena>.yml`). Se pueden correr a la vez. Cada uno corre los tests, scrapea su cadena, commitea `data/offers/<cadena>.json` y su línea de `data/run.json` en `main` ("data: ofertas de <cadena> del DD/MM/AAAA") y abre un issue si falló. No publican nada. La lógica común está en `scrape.yml`.
 2. Si alguno falló, se puede volver a correr solo ese.
@@ -196,6 +200,7 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 13/11/2026 | Se lanza sin revisión de un abogado; los términos y la privacidad los endureció un agente, priorizando cubrir al proyecto | Pedido del mantenedor: no hay presupuesto para un abogado y se lanza el mismo día. Riesgo aceptado: no es asesoramiento legal, y los términos de uso de las cadenas no se pudieron leer. |
 | 13/11/2026 | Sin cron: `daily.yml` se reemplaza por tres workflows de scrape, uno por cadena, y uno de deploy, todos a mano. Los scrapes commitean su archivo y su línea de `run.json` (con reintento del push, porque pueden correr a la vez) y el deploy publica lo que hay en `main` | El cron `0 10 * * *` salió 7 horas y media tarde los tres días (11, 12 y 13/11). Si no corre a horario, no sirve automatizado. Separado, una cadena caída (issue #2, DAR) se vuelve a correr sola y se publica recién cuando las tres están bien. Reemplaza la decisión del 10/11 de correr todo junto y a diario. |
 | 21/11/2026 | Cada release se trabaja en su rama (`release/v0.1.1`) y entra a `main` con un PR; al mergear, tag y GitHub Release. Sin rama `development`. El bot sigue commiteando `data/` en `main`, y la rama de release trae `main` cada tanto | El deploy publica lo que hay en `main`: con código a medias en `main`, cualquier deploy (y uno automático, si vuelve) lo publicaría. Con un solo mantenedor y una release a la vez, una `development` permanente da el mismo trabajo sin sumar nada. El PR deja el diff de la release para revisar. Completa la decisión del 13/11 (`main` sigue sin ruleset). |
+| 21/11/2026 | Vuelve la corrida automática: `daily.yml` (tres scrapes en paralelo y publicar aunque una cadena falle) disparado a las 12:00 hora argentina por un Cron Trigger de un Worker aparte (`ofertas-rosario-cron`), no por el cron de GitHub. Token fine-grained a 90 días, solo este repo y "Actions: Read and write". Los workflows a mano quedan | El cron de Cloudflare sale al minuto; el de GitHub salía 7 horas y media tarde. Worker aparte para que el del sitio siga siendo solo estático (gratis sin límite). Cada día es independiente: si falla, se corre a mano. Argentina es UTC-3 todo el año, así que `0 15 * * *` UTC = 12:00. Reemplaza en parte la decisión del 13/11 (sin cron). |
 
 ## Próximos pasos
 
@@ -293,6 +298,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `60f0a97` | 21/11/2026 | Flujo de ramas por release (rama + PR, sin `development`). En `release/v0.1.1`. |
 | `e8bdc6e` | 13/11/2026 | `main` sin protección (decisión) y hash del lanzamiento. |
 | `cf1c804` | 13/11/2026 | Lanzamiento: términos y privacidad reforzados, sin promesas de horario, URL del repo en el pie y en el User-Agent, fuentes de promos bancarias y próximas releases. |
 | `42810c4` | 13/11/2026 | Sin cron: un workflow de scrape por cadena y uno de deploy, todos a mano. |

@@ -1,0 +1,20 @@
+{
+  // Worker aparte del sitio: solo dispara la "Corrida del día" (daily.yml) en GitHub Actions.
+  // El Worker del sitio (../wrangler.jsonc) sigue siendo solo archivos estáticos.
+  // Costo: una ejecución por día, muy lejos del límite del plan gratis.
+  // Secret necesario: GITHUB_TOKEN (fine-grained, solo este repo, "Actions: Read and write").
+  // Publicar: npx wrangler@4.155.0 deploy --config cron/wrangler.jsonc
+  "name": "ofertas-rosario-cron",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  // No public URL: the Worker only runs on its schedule.
+  "workers_dev": false,
+  "triggers": {
+    // Cloudflare crons are UTC. Argentina is UTC-3 all year (no daylight saving): 15:00 UTC = 12:00.
+    "crons": ["0 15 * * *"]
+  },
+  // Logs in the dashboard, to see a rejected dispatch (e.g. an expired token).
+  "observability": {
+    "enabled": true
+  }
+}
