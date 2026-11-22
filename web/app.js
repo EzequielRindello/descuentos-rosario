@@ -274,7 +274,7 @@ function promoChip(promo) {
 // Same markup as templates/offers.html, so search results and saved offers look identical.
 function renderList(rows) {
   const list = el('ol', 'cards');
-  for (const [key, chainName, name, price, listPrice, discount, promo, url, image, , history] of rows) {
+  for (const [key, chainName, name, price, listPrice, discount, promo, url, image, , history, other] of rows) {
     const item = el('li', 'card');
     item.dataset.id = key;
     if (image) {
@@ -302,6 +302,21 @@ function renderList(rows) {
     }
     // Price history note, same markup as templates/offers.html: [kind, text] from the build.
     const historyNote = history ? el('p', 'history-note history-' + history[0], history[1]) : null;
+    // Same product in another chain, same markup as templates/offers.html: [chain, cents, url, units].
+    let otherNote = null;
+    if (other) {
+      const [otherChain, otherPrice, otherUrl, otherUnits] = other;
+      let priceNode = formatArs(otherPrice);
+      if (otherUrl) {
+        priceNode = el('a', '', formatArs(otherPrice));
+        priceNode.href = otherUrl;
+        priceNode.rel = 'nofollow noopener';
+        priceNode.target = '_blank';
+      }
+      otherNote = el('p', 'card-other', 'En ' + otherChain + ': ', priceNode);
+      if (otherUnits) otherNote.append(' c/u llevando ' + otherUnits);
+      if (otherPrice < price) otherNote.append(' ', el('strong', '', '(más barato)'));
+    }
     const actions = el('p', 'card-actions');
     if (url) {
       const link = el('a', 'card-link', 'ver en ' + chainName + ' ', icon('external'));
@@ -311,7 +326,7 @@ function renderList(rows) {
       actions.append(link);
     }
     actions.append(saveButton(key, name));
-    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, historyNote, actions));
+    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, historyNote, otherNote, actions));
     list.append(item);
   }
   return list;

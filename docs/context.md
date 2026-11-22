@@ -40,7 +40,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
 | `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
-| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura, categoria, historial]`. `historial` es `[tipo, texto]` (ver "Historial de precios") o `null`. |
+| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura, categoria, historial, otra_cadena]`. `historial` es `[tipo, texto]` (ver "Historial de precios") o `null`; `otra_cadena`, ver "Mismo producto en otra cadena". |
 | `/bancos/` | Descuentos por banco agrupados por día (una promo de varios días aparece en cada uno; las sin día van en "Sin día indicado"). `app.js` (`setupPromoDays`) marca el día de hoy en hora argentina y lo pone primero. Sin promos vigentes no hay página ni pestaña. El build saca las que tienen `valid_until` pasado. |
 | `/datos/bancos.json` | Las mismas promos en JSON (array de `BankPromo`). |
 | `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
@@ -63,6 +63,10 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 - `good` "N% menos que en los últimos 30 días": solo para productos que nunca tuvieron precio anterior (DAR), al menos 5% por debajo de la mediana.
 - `good` "El más bajo en 30 días": menor que todos los precios vistos.
 - Nada si el precio cae más de 60% contra el mínimo visto: casi siempre es un cambio de unidad o envase.
+
+### Mismo producto en otra cadena
+
+`same_product` en `src/site.rs`: junta las ofertas del día por código de barras (sin ceros adelante; se descartan los de menos de 8 dígitos y los de 13 que empiezan con 2, que son códigos propios de cada súper, como los de verdulería pesada). Si el mismo código está en oferta en otra cadena, la tarjeta muestra "En Coto: $X" con link a esa oferta, "c/u llevando N" si es una promo por cantidad y "(más barato)" si allá cuesta menos; con varias ofertas del mismo código, se toma la más barata. DAR no publica EAN. En `buscar.json` es la columna 12: `[cadena, precio en centavos, url, unidades]` o `null`. El 21/11/2026 coincidían 554 productos.
 
 ## SEO y descubrimiento por IAs
 

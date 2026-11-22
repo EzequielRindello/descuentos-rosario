@@ -997,6 +997,16 @@ select:focus {
   align-self: flex-start;
 }
 
+/* Same product in another chain (same barcode). */
+.card-other {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.card-other strong {
+  color: var(--ink);
+}
+
 /* ---------- Bank promos (/bancos/) ---------- */
 
 .day-nav {

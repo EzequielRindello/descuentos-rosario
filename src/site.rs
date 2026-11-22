@@ -67,6 +67,26 @@ struct OfferView {
     image: Option<String>,
     /// What the price history says (`history::Signal`): kind ("good", "warn") and text.
     history: Option<(&'static str, String)>,
+    /// The same product (same barcode) on offer today in another chain.
+    other: Option<OtherView>,
+}
+
+/// The same product in another chain, as the offer card shows it.
+#[derive(Debug, Serialize)]
+struct OtherView {
+    chain_name: &'static str,
+    price: String,
+    units: Option<u8>,
+    url: Option<String>,
+    /// Cheaper there than here.
+    cheaper: bool,
+}
+
+/// What the build adds to each offer from outside its own data: the price history and the same
+/// product in another chain. Keyed by offer key (`<chain>:<id>`).
+struct Extras<'a> {
+    signals: HashMap<String, Signal>,
+    same: HashMap<String, &'a Offer>,
 }
 
 #[derive(Debug, Serialize)]
@@ -143,7 +163,8 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     // Compared with the days before this run (its own date, not the build's).
     let run_day = report.as_ref().and_then(|r| DateTime::parse_from_rfc3339(&r.generated_at).ok()).map_or(today.clone(), |d| d.format("%Y-%m-%d").to_string());
     let signals = history_signals(&chains, &history::load(data_dir, &run_day));
-    let view = |offer: &Offer| view(offer, &signals);
+    let extras = Extras { signals, same: same_product(&chains) };
+    let view = |offer: &Offer| view(offer, &extras);
     let mut env = environment()?;
     // The "Bancos" tab only shows up when there are promos to show.
     env.add_global("has_promos", !promos.is_empty());
@@ -242,7 +263,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "description": "Descargá las ofertas del día de los supermercados de Rosario en JSON y CSV. Libres para usar.",
         "canonical": format!("{}/datos/", site.url),
     })))?;
-    write_data_files(out_dir, &chains, &signals)?;
+    write_data_files(out_dir, &chains, &extras)?;
     fs::write(out_dir.join("datos/bancos.json"), serde_json::to_string(&promos)?)?;
 
     // Bank promos, by day of the week.
@@ -467,10 +488,58 @@ fn history_signals(chains: &[ChainData], history: &history::History) -> HashMap<
         .collect()
 }
 
-fn view(offer: &Offer, signals: &HashMap<String, Signal>) -> OfferView {
+/// Barcode that identifies the same product in every chain: GTIN-8/12/13/14 without leading
+/// zeros. Codes starting with 2 are each store's own (weighed produce, in-store items) and never
+/// match across chains.
+fn comparable_ean(ean: Option<&str>) -> Option<&str> {
+    let ean = ean?.trim();
+    if !(8..=14).contains(&ean.len()) || !ean.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let trimmed = ean.trim_start_matches('0');
+    (trimmed.len() >= 8 && !(ean.len() == 13 && ean.starts_with('2'))).then_some(trimmed)
+}
+
+/// Offer key -> the same product (same barcode) on offer today in another chain, its cheapest
+/// offer there. DAR publishes no barcodes, so this is Carrefour and Coto.
+fn same_product(chains: &[ChainData]) -> HashMap<String, &Offer> {
+    let mut by_ean: HashMap<(&str, Chain), &Offer> = HashMap::new();
+    for offer in chains.iter().flat_map(|c| &c.offers) {
+        if let Some(ean) = comparable_ean(offer.ean.as_deref()) {
+            by_ean.entry((ean, offer.chain)).and_modify(|o| if offer.price < o.price { *o = offer }).or_insert(offer);
+        }
+    }
+    let mut same = HashMap::new();
+    for offer in chains.iter().flat_map(|c| &c.offers) {
+        let Some(ean) = comparable_ean(offer.ean.as_deref()) else { continue };
+        // The cheapest other chain, when there are several.
+        let other = Chain::ALL
+            .into_iter()
+            .filter(|c| *c != offer.chain)
+            .filter_map(|c| by_ean.get(&(ean, c)).copied())
+            .min_by_key(|o| o.price);
+        if let Some(other) = other {
+            same.insert(format!("{}:{}", offer.chain.id(), offer.id), other);
+        }
+    }
+    same
+}
+
+fn other_view(offer: &Offer, other: &Offer) -> OtherView {
+    OtherView {
+        chain_name: other.chain.name(),
+        price: format_ars(other.price),
+        units: promo_units(other.promo.as_deref()),
+        url: other.url.clone(),
+        cheaper: other.price < offer.price,
+    }
+}
+
+fn view(offer: &Offer, extras: &Extras) -> OfferView {
     let key = format!("{}:{}", offer.chain.id(), offer.id);
     OfferView {
-        history: signals.get(&key).map(|s| (s.kind(), s.label())),
+        history: extras.signals.get(&key).map(|s| (s.kind(), s.label())),
+        other: extras.same.get(&key).map(|other| other_view(offer, other)),
         key: format!("{}:{}", offer.chain.id(), offer.id),
         name: offer.name.clone(),
         chain_name: offer.chain.name(),
@@ -660,7 +729,7 @@ fn json_ld(value: &serde_json::Value) -> String {
     value.to_string().replace("</", "<\\/")
 }
 
-fn write_data_files(out_dir: &Path, chains: &[ChainData], signals: &HashMap<String, Signal>) -> Result<()> {
+fn write_data_files(out_dir: &Path, chains: &[ChainData], extras: &Extras) -> Result<()> {
     let dir = out_dir.join("datos");
     fs::create_dir_all(&dir)?;
     let mut search_rows = Vec::new();
@@ -684,10 +753,12 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData], signals: &HashMap<Stri
                 opt(offer.url.clone()),
                 opt(offer.category.clone()),
             ])?;
-            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image, category, history].
+            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image, category, history, other].
             // history is [kind, text] or null (see `history::Signal`).
             let key = format!("{}:{}", offer.chain.id(), offer.id);
-            let history = signals.get(&key).map(|s| json!([s.kind(), s.label()]));
+            let history = extras.signals.get(&key).map(|s| json!([s.kind(), s.label()]));
+            // [chain name, price in cents, url, units] of the same product in another chain.
+            let other = extras.same.get(&key).map(|o| json!([o.chain.name(), o.price, o.url, promo_units(o.promo.as_deref())]));
             search_rows.push(json!([
                 key,
                 offer.chain.name(),
@@ -700,6 +771,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData], signals: &HashMap<Stri
                 thumbnail(offer),
                 offer.category,
                 history,
+                other,
             ]));
         }
     }
@@ -1191,6 +1263,55 @@ mod tests {
         let history_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[10].clone()).unwrap();
         assert_eq!(history_of("carrefour:1"), json!(["warn", "El precio anterior subió hace poco"]));
         assert_eq!(history_of("carrefour:2"), json!(["good", "El más bajo en 30 días"]));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn comparable_barcodes() {
+        assert_eq!(comparable_ean(Some("7790154000669")), Some("7790154000669"));
+        assert_eq!(comparable_ean(Some("07790154000669")), Some("7790154000669"), "GTIN-14 with a leading zero");
+        assert_eq!(comparable_ean(Some("2000000012345")), None, "store's own code (weighed produce)");
+        assert_eq!(comparable_ean(Some("0000000029345")), None, "internal code padded with zeros");
+        assert_eq!(comparable_ean(Some("12345")), None);
+        assert_eq!(comparable_ean(Some("77901540A0669")), None);
+        assert_eq!(comparable_ean(None), None);
+    }
+
+    #[test]
+    fn same_product_in_another_chain() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-same-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let offer = |chain: &str, id: &str, ean: &str, price: u64, promo: &str| {
+            format!(
+                r#"{{"chain":"{chain}","store":"x","id":"{id}","ean":{ean},"name":"Sidra {chain} {id}","price":{price},"list_price":{},"discount_pct":10,"promo":{promo},"url":"https://www.{chain}.com.ar/{id}","image":null,"source":"web"}}"#,
+                price * 2
+            )
+        };
+        let carrefour = [offer("carrefour", "1", r#""7790154000669""#, 390_000, "null"), offer("carrefour", "2", r#""7790000000001""#, 100_000, "null")];
+        let coto = [
+            offer("coto", "a", r#""7790154000669""#, 412_500, r#""2da al 70% (Llevando 2)""#),
+            offer("coto", "b", r#""7790154000669""#, 450_000, "null"),
+            offer("coto", "c", r#""2000000012345""#, 100_000, "null"),
+        ];
+        fs::write(data.join("offers/carrefour.json"), format!("[{}]", carrefour.join(","))).unwrap();
+        fs::write(data.join("offers/coto.json"), format!("[{}]", coto.join(","))).unwrap();
+        fs::write(data.join("offers/dar.json"), "[]").unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let carrefour_page = fs::read_to_string(out.join("carrefour/index.html")).unwrap().replace("&#x2f;", "/");
+        // Coto's cheapest offer of the same barcode, per unit taking 2; dearer than here.
+        assert!(carrefour_page.contains(r#"<p class="card-other">En Coto: <a href="https://www.coto.com.ar/a" rel="nofollow noopener" target="_blank">$4.125</a> c/u llevando 2</p>"#), "{carrefour_page}");
+        let coto_page = fs::read_to_string(out.join("coto/index.html")).unwrap().replace("&#x2f;", "/");
+        assert!(coto_page.contains(r#"$3.900</a> <strong>(más barato)</strong></p>"#));
+        assert_eq!(coto_page.matches(r#"class="card-other""#).count(), 2, "the store-only code does not match");
+        let search: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/buscar.json")).unwrap()).unwrap();
+        let other_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[11].clone()).unwrap();
+        assert_eq!(other_of("carrefour:1"), json!(["Coto", 412_500, "https://www.coto.com.ar/a", 2]));
+        assert_eq!(other_of("carrefour:2"), serde_json::Value::Null);
         fs::remove_dir_all(&root).unwrap();
     }
 }
