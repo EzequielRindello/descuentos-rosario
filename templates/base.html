@@ -39,8 +39,7 @@
 <li><a href="/"{% if canonical == site.url ~ "/" %} aria-current="page"{% endif %}>Inicio</a></li>
 {% for c in chains %}<li><a href="/{{ c.id }}/"{% if chain is defined and chain.id == c.id %} aria-current="page"{% endif %}>{{ c.name }}</a></li>
 {% endfor %}{% if has_promos %}<li><a href="/bancos/"{% if canonical == site.url ~ "/bancos/" %} aria-current="page"{% endif %}>Bancos</a></li>
-{% endif %}<li><a href="/datos/"{% if canonical == site.url ~ "/datos/" %} aria-current="page"{% endif %}>Datos abiertos</a></li>
-</ul>
+{% endif %}</ul>
 </nav>
 <div class="header-actions">
 <button type="button" id="tema-boton" class="icon-btn" hidden><svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg><svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span class="visually-hidden" id="tema-texto">Cambiar el modo de color</span></button>
@@ -59,7 +58,7 @@
 <div class="footer-inner">
 <p>Ofertas actualizadas el {{ updated }}. Los precios salen de las webs de cada cadena y pueden no coincidir con el de la góndola. Revisá siempre en el súper antes de comprar.</p>
 <p>{{ site.name }} es un proyecto independiente y de código abierto, sin relación con las cadenas. Los datos del día se pueden descargar en <a href="/datos/">Datos abiertos</a>.</p>
-<p class="footer-links"><a href="/preguntas-frecuentes/">Preguntas frecuentes</a> <a href="/terminos/">Términos y aviso legal</a> <a href="/privacidad/">Privacidad</a>{% if site.repo %} <a href="{{ site.repo }}">Código fuente</a>{% endif %}</p>
+<p class="footer-links"><a href="/preguntas-frecuentes/">Preguntas frecuentes</a> <a href="/terminos/">Términos y aviso legal</a> <a href="/privacidad/">Privacidad</a> <a href="/datos/">Datos abiertos</a>{% if site.repo %} <a href="{{ site.repo }}">Código fuente</a>{% endif %}</p>
 </div>
 </footer>
 <button type="button" id="arriba" class="to-top" title="Volver arriba" hidden>{{ icon.arrow_up() }}<span class="visually-hidden">Volver arriba</span></button>

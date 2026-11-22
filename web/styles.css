@@ -1298,9 +1298,16 @@ select:focus {
   margin: 0 0 12px;
 }
 
+/* Chain name on the left, count on the right (over the prices), ruled off from the rows. */
 .shop-chain-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   font-size: 1rem;
   margin: 0 0 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .shop-count {
