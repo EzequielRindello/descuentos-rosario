@@ -1,5 +1,6 @@
 mod config;
 mod detector;
+mod history;
 mod http;
 mod model;
 mod output;

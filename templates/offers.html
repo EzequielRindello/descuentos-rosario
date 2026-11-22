@@ -6,6 +6,7 @@
 <p class="card-chain">{{ o.chain_name }}</p>
 <p class="card-price"><strong class="price">{{ o.price }}</strong>{% if o.units %} <span class="per-unit">c/u llevando {{ o.units }}</span>{% endif %}{% if o.list_price %} <span class="before">antes <s>{{ o.list_price }}</s></span>{% endif %}</p>
 {% if o.list_price or o.promo %}<p class="card-tags">{% if o.list_price %}<em class="badge{% if o.discount_pct >= 40 %} badge-big{% endif %}">-{{ o.discount_pct }}%<span class="visually-hidden"> de descuento</span></em>{% endif %}{% if o.promo %} <span class="chip">{{ o.promo }}</span>{% endif %}</p>
+{% endif %}{% if o.history %}<p class="history-note history-{{ o.history[0] }}">{{ o.history[1] }}</p>
 {% endif %}<p class="card-actions">{% if o.url %}<a class="card-link" href="{{ o.url }}" rel="nofollow noopener" target="_blank">ver en {{ o.chain_name }} {{ icon.external() }}</a>{% endif %}
 <button type="button" class="btn-save" data-fav="{{ o.key }}" hidden>Guardar</button></p>
 </div>

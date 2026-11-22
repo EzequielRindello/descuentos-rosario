@@ -261,7 +261,7 @@ function promoChip(promo) {
 // Same markup as templates/offers.html, so search results and saved offers look identical.
 function renderList(rows) {
   const list = el('ol', 'cards');
-  for (const [key, chainName, name, price, listPrice, discount, promo, url, image] of rows) {
+  for (const [key, chainName, name, price, listPrice, discount, promo, url, image, , history] of rows) {
     const item = el('li', 'card');
     item.dataset.id = key;
     if (image) {
@@ -287,6 +287,8 @@ function renderList(rows) {
       if (listPrice) tags.append(el('em', discount >= 40 ? 'badge badge-big' : 'badge', '-' + discount + '%', el('span', 'visually-hidden', ' de descuento')));
       if (chip) tags.append(' ', el('span', 'chip', chip));
     }
+    // Price history note, same markup as templates/offers.html: [kind, text] from the build.
+    const historyNote = history ? el('p', 'history-note history-' + history[0], history[1]) : null;
     const actions = el('p', 'card-actions');
     if (url) {
       const link = el('a', 'card-link', 'ver en ' + chainName + ' ', icon('external'));
@@ -296,7 +298,7 @@ function renderList(rows) {
       actions.append(link);
     }
     actions.append(saveButton(key, name));
-    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, actions));
+    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, historyNote, actions));
     list.append(item);
   }
   return list;

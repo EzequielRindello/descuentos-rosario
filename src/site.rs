@@ -4,6 +4,7 @@
 //! AI crawlers can read them. JavaScript only adds search, saved offers and the install prompt.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -15,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::config::{Category, Config};
+use crate::history::{self, Signal};
 use crate::model::{BankPromo, Chain, Offer};
 use crate::output::RunReport;
 
@@ -63,6 +65,8 @@ struct OfferView {
     url: Option<String>,
     /// Thumbnail URL on the chain's image server (Carrefour and Coto only).
     image: Option<String>,
+    /// What the price history says (`history::Signal`): kind ("good", "warn") and text.
+    history: Option<(&'static str, String)>,
 }
 
 #[derive(Debug, Serialize)]
@@ -136,6 +140,10 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     let categories = category_views(&chains, &stores.categories);
     let today = chrono::Utc::now().with_timezone(&chrono::FixedOffset::west_opt(3 * 3600).expect("valid offset")).format("%Y-%m-%d").to_string();
     let promos = load_promos(data_dir, &today)?;
+    // Compared with the days before this run (its own date, not the build's).
+    let run_day = report.as_ref().and_then(|r| DateTime::parse_from_rfc3339(&r.generated_at).ok()).map_or(today.clone(), |d| d.format("%Y-%m-%d").to_string());
+    let signals = history_signals(&chains, &history::load(data_dir, &run_day));
+    let view = |offer: &Offer| view(offer, &signals);
     let mut env = environment()?;
     // The "Bancos" tab only shows up when there are promos to show.
     env.add_global("has_promos", !promos.is_empty());
@@ -234,7 +242,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "description": "Descargá las ofertas del día de los supermercados de Rosario en JSON y CSV. Libres para usar.",
         "canonical": format!("{}/datos/", site.url),
     })))?;
-    write_data_files(out_dir, &chains)?;
+    write_data_files(out_dir, &chains, &signals)?;
     fs::write(out_dir.join("datos/bancos.json"), serde_json::to_string(&promos)?)?;
 
     // Bank promos, by day of the week.
@@ -450,8 +458,19 @@ fn highlights(offers: &[Offer], n: usize) -> Vec<&Offer> {
         .collect()
 }
 
-fn view(offer: &Offer) -> OfferView {
+/// Offer key -> what its price history says, for today's offers that have something to say.
+fn history_signals(chains: &[ChainData], history: &history::History) -> HashMap<String, Signal> {
+    chains
+        .iter()
+        .flat_map(|c| &c.offers)
+        .filter_map(|offer| Some((format!("{}:{}", offer.chain.id(), offer.id), history::signal(offer, history.past(offer))?)))
+        .collect()
+}
+
+fn view(offer: &Offer, signals: &HashMap<String, Signal>) -> OfferView {
+    let key = format!("{}:{}", offer.chain.id(), offer.id);
     OfferView {
+        history: signals.get(&key).map(|s| (s.kind(), s.label())),
         key: format!("{}:{}", offer.chain.id(), offer.id),
         name: offer.name.clone(),
         chain_name: offer.chain.name(),
@@ -639,7 +658,7 @@ fn json_ld(value: &serde_json::Value) -> String {
     value.to_string().replace("</", "<\\/")
 }
 
-fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
+fn write_data_files(out_dir: &Path, chains: &[ChainData], signals: &HashMap<String, Signal>) -> Result<()> {
     let dir = out_dir.join("datos");
     fs::create_dir_all(&dir)?;
     let mut search_rows = Vec::new();
@@ -663,9 +682,12 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 opt(offer.url.clone()),
                 opt(offer.category.clone()),
             ])?;
-            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image, category].
+            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image, category, history].
+            // history is [kind, text] or null (see `history::Signal`).
+            let key = format!("{}:{}", offer.chain.id(), offer.id);
+            let history = signals.get(&key).map(|s| json!([s.kind(), s.label()]));
             search_rows.push(json!([
-                format!("{}:{}", offer.chain.id(), offer.id),
+                key,
                 offer.chain.name(),
                 offer.name,
                 offer.price,
@@ -675,6 +697,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 offer.url,
                 thumbnail(offer),
                 offer.category,
+                history,
             ]));
         }
     }
@@ -1113,6 +1136,57 @@ mod tests {
         assert!(terms.contains(r#"<p id="bancos">"#) && !terms.contains("No incluimos descuentos por banco"));
         assert!(fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("<h2>Descuentos por banco</h2>"));
         assert!(fs::read_to_string(out.join("preguntas-frecuentes/index.html")).unwrap().contains("¿De dónde salen los descuentos por banco?"));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn price_history_comes_from_the_daily_commits() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-history-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let git = |args: &[&str], date: &str| {
+            let status = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(["-c", "user.name=bot", "-c", "user.email=bot@example.com", "-c", "commit.gpgsign=false"])
+                .args(args)
+                .env("GIT_AUTHOR_DATE", date)
+                .env("GIT_COMMITTER_DATE", date)
+                .status();
+            status.is_ok_and(|s| s.success())
+        };
+        if !git(&["init", "-q"], "2026-11-01T12:00:00+00:00") {
+            fs::remove_dir_all(&root).unwrap();
+            return; // no git on this machine
+        }
+        let offers = |yerba: (u64, u64), fideos: u64| {
+            format!(
+                r#"[{{"chain":"carrefour","store":"x","id":"1","ean":null,"name":"Yerba","price":{},"list_price":{},"discount_pct":10,"promo":null,"url":null,"image":null,"source":"web"}},
+{{"chain":"carrefour","store":"x","id":"2","ean":null,"name":"Fideos","price":{fideos},"list_price":2000,"discount_pct":10,"promo":null,"url":null,"image":null,"source":"web"}}]"#,
+                yerba.0, yerba.1
+            )
+        };
+        // Three earlier days (the bot commits at UTC times) with the usual prices.
+        for day in ["2026-11-10", "2026-11-11", "2026-11-12"] {
+            fs::write(data.join("offers/carrefour.json"), offers((900, 1000), 1800)).unwrap();
+            assert!(git(&["add", "-A"], &format!("{day}T14:00:00+00:00")));
+            assert!(git(&["commit", "-q", "--allow-empty", "-m", "data"], &format!("{day}T14:00:00+00:00")));
+        }
+        // Today: same yerba price with a raised "before" price, fideos at their lowest.
+        fs::write(data.join("offers/carrefour.json"), offers((900, 1500), 1500)).unwrap();
+        fs::write(data.join("run.json"), r#"{"generated_at":"2026-11-13T12:05:00-03:00","chains":{"carrefour":{"ok":true,"offers":2,"seconds":1,"error":null}}}"#).unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let page = fs::read_to_string(out.join("carrefour/index.html")).unwrap();
+        assert!(page.contains(r#"<p class="history-note history-warn">El precio anterior subió hace poco</p>"#), "{page}");
+        assert!(page.contains(r#"<p class="history-note history-good">El más bajo en 30 días</p>"#));
+        let search: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/buscar.json")).unwrap()).unwrap();
+        let history_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[10].clone()).unwrap();
+        assert_eq!(history_of("carrefour:1"), json!(["warn", "El precio anterior subió hace poco"]));
+        assert_eq!(history_of("carrefour:2"), json!(["good", "El más bajo en 30 días"]));
         fs::remove_dir_all(&root).unwrap();
     }
 }

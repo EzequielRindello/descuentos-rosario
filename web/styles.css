@@ -975,6 +975,28 @@ select:focus {
   }
 }
 
+/* Price history note under the price (history::Signal): a real drop, or a raised "before" price. */
+.history-note {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.history-good {
+  color: var(--on-soft);
+  background: var(--soft);
+  border-radius: var(--radius-tag);
+  padding: 2px 8px;
+  align-self: flex-start;
+}
+
+.history-warn {
+  color: var(--muted);
+  border: 1.5px solid var(--control);
+  border-radius: var(--radius-tag);
+  padding: 1px 7px;
+  align-self: flex-start;
+}
+
 /* ---------- Bank promos (/bancos/) ---------- */
 
 .day-nav {
