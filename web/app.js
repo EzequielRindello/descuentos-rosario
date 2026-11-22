@@ -153,6 +153,24 @@ async function checkFreshness() {
   notice.hidden = false;
 }
 
+// ---------- Bank promos ----------
+
+// /bancos/: marks today's day (Argentina) and moves it first, in the day links and the sections.
+function setupPromoDays() {
+  const nav = $('.day-nav');
+  if (!nav) return;
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
+  const today = String(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(weekday) + 1);
+  const link = nav.querySelector(`a[data-day="${today}"]`);
+  if (!link) return;
+  link.setAttribute('aria-current', 'date');
+  nav.prepend(link);
+  const section = document.querySelector(`section.promo-day[data-day="${today}"]`);
+  if (!section) return;
+  nav.after(section);
+  section.querySelector('.promo-today').hidden = false;
+}
+
 function setupFreshness() {
   checkFreshness();
   // An installed app can stay open for days: check again when it comes back or reconnects.
@@ -1055,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupToTop();
   setupInstall();
   setupFreshness();
+  setupPromoDays();
   setupSearch();
   setupSaved();
   setupAlerts();

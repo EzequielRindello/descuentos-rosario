@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::config::{Category, Config};
-use crate::model::{Chain, Offer};
+use crate::model::{BankPromo, Chain, Offer};
 use crate::output::RunReport;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -82,6 +82,43 @@ struct ChainView {
     top: Vec<OfferView>,
 }
 
+/// One bank promo as the `/bancos/` page shows it.
+#[derive(Debug, Serialize)]
+struct PromoView {
+    chain_name: &'static str,
+    discount_pct: u8,
+    title: String,
+    payment: Option<String>,
+    conditions: Option<String>,
+    /// "Online", "En sucursal (Hiper, Market)", "Online y en sucursal".
+    #[serde(rename = "where")]
+    where_label: String,
+    /// dd/mm/yyyy.
+    valid_until: Option<String>,
+    legal: Option<String>,
+    url: String,
+}
+
+/// One day of the week on the `/bancos/` page (id 0: promos with no day given).
+#[derive(Debug, Serialize)]
+struct PromoDay {
+    id: u8,
+    slug: &'static str,
+    name: &'static str,
+    promos: Vec<PromoView>,
+}
+
+const PROMO_DAYS: [(u8, &str, &str); 8] = [
+    (1, "lunes", "Lunes"),
+    (2, "martes", "Martes"),
+    (3, "miercoles", "Miércoles"),
+    (4, "jueves", "Jueves"),
+    (5, "viernes", "Viernes"),
+    (6, "sabado", "Sábado"),
+    (7, "domingo", "Domingo"),
+    (0, "sin-dia", "Sin día indicado"),
+];
+
 struct ChainData {
     chain: Chain,
     store: String,
@@ -97,7 +134,11 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     // Machine-readable run time: pages carry it so app.js can tell stale (cached) pages apart.
     let updated_iso = report.as_ref().map(|r| r.generated_at.clone()).unwrap_or_default();
     let categories = category_views(&chains, &stores.categories);
+    let today = chrono::Utc::now().with_timezone(&chrono::FixedOffset::west_opt(3 * 3600).expect("valid offset")).format("%Y-%m-%d").to_string();
+    let promos = load_promos(data_dir, &today)?;
     let mut env = environment()?;
+    // The "Bancos" tab only shows up when there are promos to show.
+    env.add_global("has_promos", !promos.is_empty());
     env.add_global("updated_iso", updated_iso.clone());
     // The "Categoría" filter, on the home page and every chain page that has categories.
     env.add_global("categories", Value::from(minijinja::value::Serde(&categories)));
@@ -194,6 +235,22 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "canonical": format!("{}/datos/", site.url),
     })))?;
     write_data_files(out_dir, &chains)?;
+    fs::write(out_dir.join("datos/bancos.json"), serde_json::to_string(&promos)?)?;
+
+    // Bank promos, by day of the week.
+    if !promos.is_empty() {
+        let url = format!("{}/bancos/", site.url);
+        sitemap.push(url.clone());
+        let promo_chains: Vec<&str> = Chain::ALL.into_iter().filter(|c| promos.iter().any(|p| p.chain == *c)).map(Chain::name).collect();
+        render(&env, "bancos.html", &out_dir.join("bancos/index.html"), &context(site, &updated, &chain_views, json!({
+            "title": format!("Descuentos por banco en supermercados de Rosario | {}", site.name),
+            "description": format!("Qué descuento hay cada día con bancos, tarjetas y billeteras en {} de Rosario. Actualizado el {updated}.", join_names(&promo_chains)),
+            "canonical": url,
+            "promo_chains": join_names(&promo_chains),
+            "promo_count": promos.len(),
+            "promo_days": promo_days(&promos),
+        })))?;
+    }
     // Tiny file the service worker never caches: app.js compares it with the page's own date.
     fs::write(out_dir.join("datos/actualizado.json"), serde_json::to_string(&json!({ "generated_at": updated_iso }))?)?;
 
@@ -238,6 +295,7 @@ fn environment() -> Result<Environment<'static>> {
     env.add_template("index.html", include_str!("../templates/index.html"))?;
     env.add_template("chain.html", include_str!("../templates/chain.html"))?;
     env.add_template("datos.html", include_str!("../templates/datos.html"))?;
+    env.add_template("bancos.html", include_str!("../templates/bancos.html"))?;
     env.add_template("404.html", include_str!("../templates/404.html"))?;
     env.add_template("preguntas.html", include_str!("../templates/preguntas.html"))?;
     env.add_template("terminos.html", include_str!("../templates/terminos.html"))?;
@@ -264,6 +322,58 @@ fn render(env: &Environment, template: &str, out: &Path, ctx: &Value) -> Result<
 
 fn page_path(base: &str, page: usize) -> String {
     if page == 1 { base.to_string() } else { format!("{base}pagina/{page}/") }
+}
+
+/// Bank promos of every chain that has a promos file, minus the ones already over (a chain whose
+/// promos could not be read keeps an old file). Biggest discount first.
+fn load_promos(data_dir: &Path, today: &str) -> Result<Vec<BankPromo>> {
+    let mut promos = Vec::new();
+    for chain in Chain::ALL {
+        let path = data_dir.join("promos").join(format!("{}.json", chain.id()));
+        if !path.exists() {
+            continue;
+        }
+        let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+        let chain_promos: Vec<BankPromo> = serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        promos.extend(chain_promos.into_iter().filter(|p| p.valid_until.as_deref().is_none_or(|until| until >= today) && p.url.starts_with("https://")));
+    }
+    promos.sort_by(|a, b| b.discount_pct.cmp(&a.discount_pct).then_with(|| a.chain.cmp(&b.chain)).then_with(|| a.title.cmp(&b.title)));
+    Ok(promos)
+}
+
+/// Groups the promos by day: one that runs several days shows up in each of them.
+fn promo_days(promos: &[BankPromo]) -> Vec<PromoDay> {
+    PROMO_DAYS
+        .iter()
+        .map(|&(id, slug, name)| PromoDay {
+            id,
+            slug,
+            name,
+            promos: promos.iter().filter(|p| if id == 0 { p.days.is_empty() } else { p.days.contains(&id) }).map(promo_view).collect(),
+        })
+        .filter(|day| !day.promos.is_empty())
+        .collect()
+}
+
+fn promo_view(promo: &BankPromo) -> PromoView {
+    let formats = if promo.formats.is_empty() { String::new() } else { format!(" ({})", promo.formats.join(", ")) };
+    let where_label = match (promo.online, promo.in_store) {
+        (true, true) => format!("Online y en sucursal{formats}"),
+        (true, false) => "Solo online".to_string(),
+        (false, true) => format!("Solo en sucursal{formats}"),
+        (false, false) => "Ver dónde aplica en el legal".to_string(),
+    };
+    PromoView {
+        chain_name: promo.chain.name(),
+        discount_pct: promo.discount_pct,
+        title: promo.title.clone(),
+        payment: promo.payment.clone(),
+        conditions: promo.conditions.clone(),
+        where_label,
+        valid_until: promo.valid_until.as_deref().and_then(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()).map(|d| d.format("%d/%m/%Y").to_string()),
+        legal: promo.legal.clone(),
+        url: promo.url.clone(),
+    }
 }
 
 fn read_report(data_dir: &Path) -> Option<RunReport> {
@@ -430,7 +540,7 @@ fn category_views(chains: &[ChainData], categories: &[Category]) -> Vec<Category
 }
 
 /// Lowercase without accents, like `normalize` in app.js (enough for Spanish product names).
-fn fold(text: &str) -> String {
+pub(crate) fn fold(text: &str) -> String {
     text.to_lowercase()
         .chars()
         .map(|c| match c {
@@ -647,6 +757,9 @@ fn write_seo_files(out_dir: &Path, site: &SiteConfig, chains: &[ChainView], site
          Los precios son los de la web de cada cadena para Rosario, Santa Fe, Argentina, y pueden diferir del precio en góndola.\n\n## Ofertas por cadena\n\n",
         site.name, site.description
     );
+    if sitemap.iter().any(|url| url.ends_with("/bancos/")) {
+        llms.push_str(&format!("- [Descuentos por banco en Rosario]({}/bancos/): qué descuento hay cada día con bancos, tarjetas y billeteras.\n", site.url));
+    }
     for c in chains {
         let count = if c.failed { "hoy sin datos (no se pudo leer la web de la cadena)".to_string() } else { format!("{} ofertas hoy", c.count_label) };
         llms.push_str(&format!("- [Ofertas de {} en Rosario]({}/{}/): {count}. {}.\n", c.name, site.url, c.id, c.store));
@@ -657,6 +770,9 @@ fn write_seo_files(out_dir: &Path, site: &SiteConfig, chains: &[ChainView], site
     ));
     for c in chains {
         llms.push_str(&format!("- [Ofertas de {} en JSON]({}/datos/{}.json): precios en centavos de peso argentino.\n", c.name, site.url, c.id));
+    }
+    if sitemap.iter().any(|url| url.ends_with("/bancos/")) {
+        llms.push_str(&format!("- [Descuentos por banco en JSON]({}/datos/bancos.json): promos con bancos, tarjetas y billeteras, por día.\n", site.url));
     }
     llms.push_str(&format!("- [Descripción de los campos]({}/datos/)\n", site.url));
     fs::write(out_dir.join("llms.txt"), llms)?;
@@ -948,6 +1064,55 @@ mod tests {
         let home = fs::read_to_string(out.join("index.html")).unwrap();
         assert!(!home.contains("Por categoría"));
         assert!(!home.contains(r#"id="f-cat""#));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn bank_promos_page_groups_by_day_and_hides_expired() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-promos-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        fs::create_dir_all(data.join("promos")).unwrap();
+        fs::write(data.join("offers/coto.json"), "[]").unwrap();
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+
+        // No promos files: no page, no tab.
+        build(&data, &out, &site, &stores).unwrap();
+        assert!(!out.join("bancos/index.html").exists());
+        assert!(!fs::read_to_string(out.join("index.html")).unwrap().contains(r#"href="/bancos/""#));
+        // Without the page, the terms keep saying bank discounts are not included.
+        assert!(fs::read_to_string(out.join("terminos/index.html")).unwrap().contains("No incluimos descuentos por banco"));
+
+        let promo = |id: &str, pct: u8, title: &str, days: &str, until: &str| {
+            format!(
+                r#"{{"chain":"coto","id":"{id}","discount_pct":{pct},"title":"{title}","payment":"Naranja X","conditions":"Tope $12.000","days":{days},"online":true,"in_store":true,"formats":[],"valid_until":{until},"legal":null,"url":"https://www.coto.com.ar/descuentos"}}"#
+            )
+        };
+        let promos = [
+            promo("1", 30, "Martes y jueves", "[2,4]", "null"),
+            promo("2", 10, "Sin dia", "[]", "null"),
+            promo("3", 50, "Ya vencida", "[2]", r#""2020-01-01""#),
+        ];
+        fs::write(data.join("promos/coto.json"), format!("[{}]", promos.join(","))).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let page = fs::read_to_string(out.join("bancos/index.html")).unwrap();
+        assert_eq!(page.matches("<h3 class=\"card-name promo-title\">Martes y jueves</h3>").count(), 2, "one card per day");
+        assert!(page.contains(r#"<section id="martes""#) && page.contains(r#"<section id="jueves""#));
+        assert!(!page.contains(r#"<section id="lunes""#), "days with no promos are left out");
+        assert!(page.contains(r#"<section id="sin-dia""#));
+        assert!(page.contains("Online y en sucursal"));
+        assert!(!page.contains("Ya vencida"));
+        assert!(fs::read_to_string(out.join("index.html")).unwrap().contains(r#"href="/bancos/""#));
+        let open: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/bancos.json")).unwrap()).unwrap();
+        assert_eq!(open.len(), 2);
+        assert!(fs::read_to_string(out.join("sitemap.xml")).unwrap().contains("/bancos/</loc>"));
+        // Legal coverage: terms, privacy and FAQ talk about the bank promos.
+        let terms = fs::read_to_string(out.join("terminos/index.html")).unwrap();
+        assert!(terms.contains(r#"<p id="bancos">"#) && !terms.contains("No incluimos descuentos por banco"));
+        assert!(fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("<h2>Descuentos por banco</h2>"));
+        assert!(fs::read_to_string(out.join("preguntas-frecuentes/index.html")).unwrap().contains("¿De dónde salen los descuentos por banco?"));
         fs::remove_dir_all(&root).unwrap();
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -13,6 +14,10 @@ pub struct Config {
     /// The site's own categories, in display order, and how each chain's categories map to them.
     #[serde(default)]
     pub categories: Vec<Category>,
+    /// Names shown for the banks, cards and logos of the bank promos, keyed by the chain's id
+    /// (Coto's logo file, Carrefour's bank or card name). Missing ones get a cleaned-up id.
+    #[serde(default)]
+    pub promo_names: BTreeMap<String, String>,
 }
 
 /// One of the site's categories. A product gets the first one that matches.

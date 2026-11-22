@@ -3,7 +3,7 @@
 <article class="prose info info-terms">
 <header class="info-hero">
 <h1>Términos de uso y aviso legal</h1>
-<p>Al usar {{ site.name }} aceptás estos términos. Si no estás de acuerdo, no uses el sitio. Última actualización: 13/11/2026.</p>
+<p>Al usar {{ site.name }} aceptás estos términos. Si no estás de acuerdo, no uses el sitio. Última actualización: {% if has_promos or (site.push_url and site.vapid_public_key) %}21/11/2026{% else %}13/11/2026{% endif %}.</p>
 </header>
 
 <div class="info-list">
@@ -24,8 +24,9 @@
 <section class="info-row">
 <h2>3. Los precios no son una oferta</h2>
 <div>
-<p>Los precios, descuentos y promociones son una copia de lo que cada cadena publica en su web, tal como estaba en la última actualización (cada página dice la fecha). No son una oferta nuestra ni de la cadena hecha a través de este sitio, y no obligan a nadie a vender a ese precio. Pueden haber cambiado, tener errores de la cadena o nuestros al leerlos, o no coincidir con los de la tienda. El porcentaje de descuento lo calculamos nosotros con los precios publicados y es aproximado. No incluimos descuentos por banco, tarjeta o medio de pago. El precio que vale es el que informa la cadena al momento de comprar. Revisalo siempre en el súper.</p>
-</div>
+<p>Los precios, descuentos y promociones son una copia de lo que cada cadena publica en su web, tal como estaba en la última actualización (cada página dice la fecha). No son una oferta nuestra ni de la cadena hecha a través de este sitio, y no obligan a nadie a vender a ese precio. Pueden haber cambiado, tener errores de la cadena o nuestros al leerlos, o no coincidir con los de la tienda. El porcentaje de descuento lo calculamos nosotros con los precios publicados y es aproximado.{% if has_promos %} Los precios no incluyen descuentos por banco, tarjeta o billetera, que se muestran aparte (ver abajo).{% else %} No incluimos descuentos por banco, tarjeta o medio de pago.{% endif %} El precio que vale es el que informa la cadena al momento de comprar. Revisalo siempre en el súper.</p>
+{% if has_promos %}<p id="bancos"><strong>Descuentos por banco.</strong> La página <a href="/bancos/">Bancos</a> resume las promociones con bancos, tarjetas y billeteras que las cadenas publican en sus webs. Las otorgan las cadenas y las entidades emisoras, no nosotros: no tenemos relación con ningún banco, tarjeta ni billetera, no estamos patrocinados por ellos, y sus nombres se mencionan solo para identificar cada promoción. Es un resumen: el texto puede estar acortado, y un filtro automático deja afuera algunas (las de cuotas y las que parecen ser solo para otras provincias) y puede equivocarse. Valen únicamente los requisitos, topes, exclusiones, días, sucursales y vigencia del legal de la cadena y de la entidad; ante cualquier diferencia, manda ese legal. Que una promoción figure acá no garantiza que se aplique a tu compra ni a tu medio de pago.</p>
+{% endif %}</div>
 </section>
 
 <section class="info-row">
@@ -38,7 +39,7 @@
 <section class="info-row">
 <h2>5. Límite de responsabilidad</h2>
 <div>
-<p>En la mayor medida que permita la ley, no respondemos por daños, pérdidas o gastos, directos o indirectos, que resulten del uso del sitio o de no poder usarlo, de errores u omisiones en la información, de decisiones de compra tomadas a partir de ella, ni del contenido o el funcionamiento de webs de terceros, incluidas las de las cadenas y las fotos que se cargan desde ellas. Cada usuario decide bajo su responsabilidad qué hacer con la información.</p>
+<p>En la mayor medida que permita la ley, no respondemos por daños, pérdidas o gastos, directos o indirectos, que resulten del uso del sitio o de no poder usarlo, de errores u omisiones en la información, de decisiones de compra tomadas a partir de ella,{% if has_promos %} de descuentos por banco que no se apliquen, hayan cambiado o terminado,{% endif %} ni del contenido o el funcionamiento de webs de terceros, incluidas las de las cadenas y las fotos que se cargan desde ellas. Cada usuario decide bajo su responsabilidad qué hacer con la información.</p>
 </div>
 </section>
 
@@ -52,7 +53,7 @@
 <section class="info-row">
 <h2>7. Pedidos de corrección o retiro</h2>
 <div>
-<p>Si representás a una cadena o sos titular de una marca o una foto y querés que corrijamos algo o que dejemos de mostrarlo, {% if site.contact %}escribinos a <a href="mailto:{{ site.contact }}">{{ site.contact }}</a>.{% else %}contactanos por los medios que figuran en el sitio.{% endif %} Respondemos dentro de los 5 días hábiles y, si corresponde, lo sacamos del sitio y dejamos de recolectarlo.</p>
+<p>Si representás a una cadena{% if has_promos %}, a un banco, tarjeta o billetera,{% endif %} o sos titular de una marca o una foto y querés que corrijamos algo o que dejemos de mostrarlo, {% if site.contact %}escribinos a <a href="mailto:{{ site.contact }}">{{ site.contact }}</a>.{% else %}contactanos por los medios que figuran en el sitio.{% endif %} Respondemos dentro de los 5 días hábiles y, si corresponde, lo sacamos del sitio y dejamos de recolectarlo.</p>
 </div>
 </section>
 

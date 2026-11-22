@@ -51,6 +51,37 @@ enabled = true
 store = "DAR"
 hint = "Es el precio de la tienda online de DAR. Sus ofertas no tienen página propia, así que no hay enlace."
 
+# Descuentos por banco (página /bancos/): nombre que se muestra para cada banco, tarjeta o
+# billetera. La clave es lo que manda la cadena: en Coto el archivo del logo (es lo único que dice
+# el banco), en Carrefour el nombre del banco o tarjeta. Los que no están se muestran con la clave
+# limpia ("logo_naranjax2.png" queda "Naranjax"): si aparece uno nuevo, sumalo acá.
+[promo_names]
+"Personal_pay.png" = "Personal Pay"
+"logo_amex1.png" = "American Express"
+"logo_beneficios_anses.png" = "ANSES"
+"logo_ciudad1.png" = "Banco Ciudad"
+"logo_ciudadania_portena.png" = "Ciudadanía porteña"
+"logo_columbia_1.png" = "Banco Columbia"
+"logo_comafi2.png" = "Comafi"
+"logo_comafi_unico.png" = "Comafi Único"
+"logo_comunidad.png" = "Comunidad Coto"
+"logo_credicoop.png" = "Credicoop"
+"logo_galicia.png" = "Galicia"
+"logo_icbc_1.png" = "ICBC"
+"logo_jubiladosypensionados.png" = "Jubilados y pensionados"
+"logo_macro_bma3.png" = "Macro"
+"logo_mercadopago.png" = "Mercado Pago"
+"logo_modo.png" = "MODO"
+"logo_nacion_d.png" = "Banco Nación"
+"logo_naranjax2.png" = "Naranja X"
+"logo_patagonia2.png" = "Patagonia"
+"logo_supervielle2.png" = "Supervielle"
+"logo_tci.png" = "Tarjeta Coto TCI"
+"logo_visa1.png" = "Visa"
+"Cuenta Digital" = "Cuenta Digital Carrefour Banco"
+"Tarjeta_Standard_Master_Carrefour" = "Tarjeta Carrefour Banco"
+"Cuenta Dni" = "Cuenta DNI"
+
 # Categorías propias del sitio: los recuadros de la portada y el filtro "Categoría", en este orden.
 # Cada producto toma la primera que coincide:
 # - Carrefour, por la categoría en la que se scrapeó (slugs de [carrefour] categories; si un

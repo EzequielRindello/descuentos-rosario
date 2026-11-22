@@ -1,0 +1,38 @@
+{
+ "data": {
+  "documents": [
+   {
+    "fields": [
+     {
+      "key": "id",
+      "value": "5a3c378c-7dad-11eb-82ac-0e5742ad38db"
+     },
+     {
+      "key": "image",
+      "value": "tarjeta-visa.png"
+     },
+     {
+      "key": "name",
+      "value": "Visa"
+     }
+    ]
+   },
+   {
+    "fields": [
+     {
+      "key": "id",
+      "value": "c442ddb1-e72d-4151-81bd-984dc9d543fe"
+     },
+     {
+      "key": "image",
+      "value": "Cuenta-Digital.webp"
+     },
+     {
+      "key": "name",
+      "value": "Cuenta Digital"
+     }
+    ]
+   }
+  ]
+ }
+}

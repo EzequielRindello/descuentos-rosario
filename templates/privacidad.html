@@ -3,7 +3,7 @@
 <article class="prose info info-privacy">
 <header class="info-hero">
 <h1>Privacidad</h1>
-<p>Corto: no te pedimos datos, no te seguimos y no vendemos nada. Última actualización: {% if site.push_url and site.vapid_public_key %}21/11/2026{% else %}13/11/2026{% endif %}.</p>
+<p>Corto: no te pedimos datos, no te seguimos y no vendemos nada. Última actualización: {% if has_promos or (site.push_url and site.vapid_public_key) %}21/11/2026{% else %}13/11/2026{% endif %}.</p>
 </header>
 
 <div class="info-grid">
@@ -11,6 +11,8 @@
 <h2>Qué no hacemos</h2>
 <ul class="check-list">
 <li>No hay cuentas, registro ni formularios.</li>
+{% if has_promos %}<li>No te preguntamos qué banco, tarjeta o billetera usás, ni te pedimos datos de pago.</li>
+{% endif %}
 <li>No usamos cookies.</li>
 <li>No usamos herramientas de analítica, publicidad ni rastreadores de terceros. Lo único que se carga desde otro sitio son las fotos de los productos (ver abajo).</li>
 <li>No vendemos ni compartimos datos{% if site.push_url and site.vapid_public_key %}. Lo único que guardamos es lo que hace falta para los avisos, si los activás (ver abajo){% else %}, porque no los tenemos{% endif %}.</li>
@@ -27,7 +29,11 @@
 <p>Son opcionales: se activan desde "Tus guardados". Si los activás, guardamos la dirección que tu navegador crea para recibir notificaciones (no dice quién sos) y los códigos de los productos que guardaste. Los usamos solo para avisarte cuando alguno vuelve a estar en oferta. Se guardan en Cloudflare y se borran cuando desactivás los avisos, cuando dejás de tener guardados o cuando tu navegador da de baja las notificaciones. Las notificaciones las entrega el servicio de tu navegador (Google, Apple, Mozilla o Microsoft).</p>
 </section>
 {% endif %}
-<section class="info-card">
+{% if has_promos %}<section class="info-card">
+<h2>Descuentos por banco</h2>
+<p>La página <a href="/bancos/">Bancos</a> es igual para todos: no sabe qué banco o tarjeta tenés y no guarda nada. Para marcar qué día es hoy usa la fecha de tu dispositivo, sin mandarla a ningún lado. Los enlaces "ver en ..." llevan a la página de promociones de cada cadena.</p>
+</section>
+{% endif %}<section class="info-card">
 <h2>El servidor</h2>
 <p>El sitio está alojado en Cloudflare. Como cualquier servidor web, Cloudflare procesa datos técnicos de cada visita (por ejemplo, la dirección IP y el tipo de navegador) para entregar las páginas y protegerlas de ataques. Nosotros no usamos esos datos para identificarte. Más información en la <a href="https://www.cloudflare.com/es-es/privacypolicy/" rel="noopener">política de privacidad de Cloudflare</a>.</p>
 </section>

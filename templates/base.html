@@ -38,7 +38,8 @@
 <ul>
 <li><a href="/"{% if canonical == site.url ~ "/" %} aria-current="page"{% endif %}>Inicio</a></li>
 {% for c in chains %}<li><a href="/{{ c.id }}/"{% if chain is defined and chain.id == c.id %} aria-current="page"{% endif %}>{{ c.name }}</a></li>
-{% endfor %}<li><a href="/datos/"{% if canonical == site.url ~ "/datos/" %} aria-current="page"{% endif %}>Datos abiertos</a></li>
+{% endfor %}{% if has_promos %}<li><a href="/bancos/"{% if canonical == site.url ~ "/bancos/" %} aria-current="page"{% endif %}>Bancos</a></li>
+{% endif %}<li><a href="/datos/"{% if canonical == site.url ~ "/datos/" %} aria-current="page"{% endif %}>Datos abiertos</a></li>
 </ul>
 </nav>
 <div class="header-actions">

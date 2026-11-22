@@ -62,6 +62,8 @@ jobs:
                   '.generated_at = $ours[0].generated_at | .chains[$c] = $ours[0].chains[$c]' \
               > data/run.json
             git add "data/offers/$CHAIN.json" data/run.json
+            # Bank promos (Carrefour and Coto; DAR has none).
+            if [ -f "data/promos/$CHAIN.json" ]; then git add "data/promos/$CHAIN.json"; fi
             if git diff --cached --quiet; then
               echo "Sin cambios en los datos."
               exit 0

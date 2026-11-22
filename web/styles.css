@@ -975,6 +975,80 @@ select:focus {
   }
 }
 
+/* ---------- Bank promos (/bancos/) ---------- */
+
+.day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 1.5rem;
+}
+
+.day-nav a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--control);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.day-nav a:hover {
+  border-color: var(--line);
+  background: var(--tint);
+}
+
+.day-nav a[aria-current] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.day-nav-count {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-nav a:not([aria-current]) .day-nav-count {
+  color: var(--muted);
+}
+
+.promo-day,
+.info-row p[id] {
+  scroll-margin-top: 80px; /* below the sticky header when jumping from the day links or /terminos/#bancos */
+}
+
+/* The full title: no two-line clamp like product names. */
+.card-name.promo-title {
+  display: block;
+  -webkit-line-clamp: none;
+  overflow: visible;
+}
+
+.promo-conditions {
+  font-size: 0.875rem;
+}
+
+.promo-legal summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--link);
+}
+
+.promo-legal p {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  max-height: 14rem; /* legal texts run long: scroll inside instead of stretching the row */
+  overflow-y: auto;
+}
+
 /* ---------- Offer cards ---------- */
 
 .cards {
