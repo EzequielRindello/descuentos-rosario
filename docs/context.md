@@ -40,7 +40,7 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
 | `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
-| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura, categoria]`. |
+| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura, categoria, historial]`. `historial` es `[tipo, texto]` (ver "Historial de precios") o `null`. |
 | `/bancos/` | Descuentos por banco agrupados por día (una promo de varios días aparece en cada uno; las sin día van en "Sin día indicado"). `app.js` (`setupPromoDays`) marca el día de hoy en hora argentina y lo pone primero. Sin promos vigentes no hay página ni pestaña. El build saca las que tienen `valid_until` pasado. |
 | `/datos/bancos.json` | Las mismas promos en JSON (array de `BankPromo`). |
 | `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
@@ -54,6 +54,15 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 Si `run.json` marca una cadena con `ok: false`, el build la publica sin ofertas: su sección y la portada dicen "Hoy no pudimos leer las ofertas de ...", y queda fuera de `buscar.json` y `hoy.csv` (`datos/<cadena>.json` sale como `[]`). Plantilla del aviso: `templates/failed.html`.
 
 Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con `include_str!`/`include_bytes!`: hay que recompilar para ver cambios. La clave de cada oferta es `<cadena>:<id>`. Los guardados van en `localStorage` (`ofertas-rosario:guardados`) como `[{ "key": "<cadena>:<id>", "name": "..." }]`; versiones viejas guardaban solo las claves, y `app.js` las sigue leyendo.
+
+### Historial de precios
+
+`src/history.rs`. El build lee de git los commits de `data/offers/<cadena>.json` de los últimos 30 días (el bot commitea cada scrape) y arma qué decían los datos cada día; un día sin commit (los datos no cambiaron) toma el último anterior. Sin git o fuera de un repo, no hay comparaciones. Por eso `deploy.yml` hace checkout con `fetch-depth: 0`. Solo hay precio de los días en que el producto estuvo en oferta. Con 3 días previos o más, cada oferta puede tener una marca (`Signal`), en la tarjeta (`templates/offers.html` y `renderList` en `app.js`) y en `buscar.json`:
+
+- `warn` "El precio anterior subió hace poco": el tachado de hoy supera en más de 15% al más bajo visto, y el precio no bajó (no es menor que el mínimo visto) ni subió (no supera la mediana). Si suben los dos, es inflación y no se marca.
+- `good` "N% menos que en los últimos 30 días": solo para productos que nunca tuvieron precio anterior (DAR), al menos 5% por debajo de la mediana.
+- `good` "El más bajo en 30 días": menor que todos los precios vistos.
+- Nada si el precio cae más de 60% contra el mínimo visto: casi siempre es un cambio de unidad o envase.
 
 ## SEO y descubrimiento por IAs
 

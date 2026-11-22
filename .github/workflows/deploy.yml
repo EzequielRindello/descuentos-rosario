@@ -23,9 +23,12 @@ jobs:
       # Actions pinned by commit SHA (a moved tag can't change what runs here); Dependabot bumps them.
       # Latest main, not the commit the run started on: inside daily.yml the scrapes pushed
       # today's data after that commit.
+      # Full history: the build compares today's prices with the daily data commits of the last
+      # 30 days (src/history.rs). The repo is small, so it costs seconds.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
