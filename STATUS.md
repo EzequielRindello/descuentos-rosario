@@ -4,7 +4,7 @@ Leé esto primero si llegás sin contexto (persona o agente). Dice qué queremos
 
 **Regla:** este archivo se actualiza en cada cambio que importe. Cada tarea terminada cita el commit que la cerró (hash corto). Los commits se hacen a mano; el hash se carga después. Si algo de acá no coincide con el código o con `git log`, manda el código: corregí este archivo.
 
-Última actualización: 21/11/2026.
+Última actualización: 22/11/2026.
 
 ## Qué es
 
@@ -319,6 +319,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `bea4f97` | 22/11/2026 | Mismo producto en otra cadena por código de barras ("En Coto: $X", link y "(más barato)"). En `release/v0.1.1`. |
 | `9b1513c` | 22/11/2026 | Fotos de las ofertas de DAR desde su servidor; una foto rota se saca de la tarjeta. En `release/v0.1.1`. |
 | `9b6fed4` | 21/11/2026 | Historial de precios: docs, Términos, Preguntas y `fetch-depth: 0` en `deploy.yml`. En `release/v0.1.1`. |
 | `d41f2ec` | 21/11/2026 | Historial de precios desde git: "El más bajo en 30 días", "El precio anterior subió hace poco" y baja de DAR contra su precio habitual. En `release/v0.1.1`. |
