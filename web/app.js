@@ -153,6 +153,19 @@ async function checkFreshness() {
   notice.hidden = false;
 }
 
+// ---------- Product photos ----------
+
+// A photo the chain no longer has (404) would show a broken image: drop it and the card falls
+// back to its no-photo layout. Capture phase, because "error" does not bubble.
+document.addEventListener(
+  'error',
+  (event) => {
+    const img = event.target;
+    if (img instanceof HTMLImageElement && img.parentElement && img.parentElement.classList.contains('card')) img.remove();
+  },
+  true
+);
+
 // ---------- Bank promos ----------
 
 // /bancos/: marks today's day (Argentina) and moves it first, in the day links and the sections.
