@@ -818,6 +818,7 @@ function setupSaved() {
     renderSaved();
     syncAlertsLater();
   });
+  setupShoppingList();
   renderSaved();
 }
 
@@ -842,6 +843,11 @@ async function renderSaved() {
   const rows = items.map((item) => byKey.get(item.key)).filter(Boolean);
   const gone = items.filter((item) => !byKey.has(item.key));
   container.replaceChildren();
+  const listView = syncViewSwitch();
+  if (listView) {
+    container.append(renderShoppingList(items, byKey));
+    return;
+  }
   if (rows.length) container.append(renderList(rows));
   if (gone.length) {
     const note = document.createElement('p');
@@ -887,6 +893,248 @@ function showReturned(items, byKey) {
   const names = items.filter((item) => day && item.back === day && byKey.has(item.key)).map((item) => byKey.get(item.key)[2]);
   note.hidden = names.length === 0;
   note.textContent = names.length ? (names.length === 1 ? 'Volvió a estar en oferta: ' : 'Volvieron a estar en oferta: ') + names.join(', ') + '.' : '';
+}
+
+// ---------- Shopping list: a view of "Tus guardados" (only on this device) ----------
+// Saved offers grouped by chain, with a box to tick off what is already in the cart and what is
+// left to pay in each chain (one unit of each). Saved items not on offer today stay out unless the
+// visitor asks for them, and then they are listed without a price. A tick is dropped when its item
+// goes off (or back on) offer, so an old tick never hides something that changed.
+
+const VIEW_KEY = 'ofertas-rosario:guardados-vista';
+const TICKS_KEY = 'ofertas-rosario:lista-tildados';
+const LIST_GONE_KEY = 'ofertas-rosario:lista-sin-oferta';
+const CHAIN_ORDER = Object.keys(CHAIN_NAMES);
+
+// Marks the current view on the "Tarjetas | Lista de compras" switch; true for the list.
+function syncViewSwitch() {
+  const list = readFlag(VIEW_KEY) === 'lista';
+  document.querySelectorAll('.view-switch button[data-view]').forEach((button) => {
+    button.setAttribute('aria-pressed', String((button.dataset.view === 'list') === list));
+  });
+  return list;
+}
+
+// { key: onOffer }: the ticked items and whether each was on offer when ticked.
+function readTicks() {
+  try {
+    const ticks = JSON.parse(readFlag(TICKS_KEY) || '{}');
+    return ticks && typeof ticks === 'object' && !Array.isArray(ticks) ? ticks : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTicks(ticks) {
+  writeFlag(TICKS_KEY, Object.keys(ticks).length ? JSON.stringify(ticks) : null);
+}
+
+// Position of each category in the "Categoría" select (the order of config/stores.toml), so the
+// list follows the store's aisles more or less. DAR has no categories: its items go by name.
+function categoryRank() {
+  const rank = new Map();
+  const select = categorySelect();
+  if (select) [...select.options].forEach((option, i) => option.value && rank.set(option.value, i));
+  return rank;
+}
+
+function renderShoppingList(items, byKey) {
+  const chainsWithData = new Set([...byKey.keys()].map((key) => key.split(':')[0]));
+  const savedKeys = new Set(items.map((item) => item.key));
+  const ticks = readTicks();
+  let ticksChanged = false;
+  for (const [key, onOffer] of Object.entries(ticks)) {
+    // A chain missing from today's data (failed scrape) says nothing about its items: keep the tick.
+    const changed = chainsWithData.has(key.split(':')[0]) && byKey.has(key) !== onOffer;
+    if (!savedKeys.has(key) || changed) {
+      delete ticks[key];
+      ticksChanged = true;
+    }
+  }
+  if (ticksChanged) writeTicks(ticks);
+
+  const withGone = readFlag(LIST_GONE_KEY) === '1';
+  const rank = categoryRank();
+  const groups = new Map();
+  let goneCount = 0;
+  for (const item of items) {
+    const row = byKey.get(item.key) || null;
+    if (!row) {
+      goneCount += 1;
+      if (!withGone) continue;
+    }
+    const chain = item.key.split(':')[0];
+    if (!groups.has(chain)) groups.set(chain, []);
+    groups.get(chain).push({ key: item.key, row, name: row ? row[2] : item.name || 'Un producto guardado' });
+  }
+  const place = (entry) => (!entry.row ? 1000 : rank.has(entry.row[9]) ? rank.get(entry.row[9]) : 900);
+  const chainPlace = (chain) => (CHAIN_ORDER.includes(chain) ? CHAIN_ORDER.indexOf(chain) : CHAIN_ORDER.length);
+
+  const wrap = el('div', 'shop');
+  for (const chain of [...groups.keys()].sort((a, b) => chainPlace(a) - chainPlace(b))) {
+    const entries = groups.get(chain).sort((a, b) => place(a) - place(b) || a.name.localeCompare(b.name, 'es'));
+    const heading = el('h3', 'shop-chain-name', chainOf(chain), ' ', el('span', 'shop-count', entries.length === 1 ? '1 producto' : entries.length + ' productos'));
+    heading.id = 'lista-' + chain;
+    const list = el('ul', 'shop-items');
+    for (const entry of entries) list.append(shopItem(entry, ticks));
+    const group = el('section', 'shop-chain', heading, list, el('p', 'shop-total'));
+    group.setAttribute('aria-labelledby', heading.id);
+    group.dataset.chain = chainOf(chain);
+    updateShopTotal(group);
+    wrap.append(group);
+  }
+
+  if (goneCount) {
+    const one = goneCount === 1;
+    const text = (one ? '1 guardado hoy no está en oferta' : goneCount + ' guardados hoy no están en oferta') +
+      (withGone ? (one ? ': va sin precio y no suma al total.' : ': van sin precio y no suman al total.') : one ? ' y no entra en la lista.' : ' y no entran en la lista.');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.id = 'lista-sin-oferta';
+    box.checked = withGone;
+    wrap.append(el('div', 'shop-gone', el('p', '', text), el('label', 'chip-check', box, one ? 'Sumarlo sin precio' : 'Sumarlos sin precio')));
+  }
+
+  if (groups.size) {
+    const share = el('button', 'btn btn-primary', 'Compartir lista');
+    share.type = 'button';
+    share.id = 'lista-compartir';
+    const uncheck = el('button', '', 'Destildar todo');
+    uncheck.type = 'button';
+    uncheck.id = 'lista-destildar';
+    const status = el('p', 'field-hint');
+    status.id = 'lista-estado';
+    status.setAttribute('aria-live', 'polite');
+    wrap.append(el('p', 'shop-actions', share, uncheck), status);
+    syncUncheck(wrap);
+  }
+  return wrap;
+}
+
+// One row: the whole row is the checkbox's label (a big touch target), with name, price and promo.
+function shopItem(entry, ticks) {
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.dataset.shop = entry.key;
+  box.checked = entry.key in ticks;
+  const label = el('label', '', box, el('span', 'shop-name', entry.name));
+  const item = el('li', entry.row ? 'shop-item' : 'shop-item shop-item-gone', label);
+  if (!entry.row) {
+    label.append(el('span', 'shop-price', 'sin oferta hoy'));
+    item.dataset.text = entry.name + ': sin oferta hoy';
+    return item;
+  }
+  const [, , , price, , , promo] = entry.row;
+  const units = promoUnits(promo);
+  const chip = promoChip(promo);
+  item.dataset.price = String(price);
+  item.dataset.text = entry.name + ': ' + formatArs(price) + (units ? ' c/u llevando ' + units : '') + (chip ? ' (' + chip + ')' : '');
+  label.append(el('span', 'shop-price', formatArs(price)));
+  if (units || chip) label.append(el('span', 'shop-meta', chip ? el('span', 'chip', chip) : null, chip && units ? ' ' : null, units ? 'c/u llevando ' + units : null));
+  return item;
+}
+
+// Unticked rows of a chain: what is left and what it costs (rows without a price don't add up).
+function shopLeft(group) {
+  const left = [...group.querySelectorAll('.shop-item')].filter((item) => !item.querySelector('input').checked);
+  const cents = left.reduce((sum, item) => sum + Number(item.dataset.price || 0), 0);
+  return { left, cents, priced: left.some((item) => item.dataset.price) };
+}
+
+function updateShopTotal(group) {
+  const total = group.querySelector('.shop-total');
+  const { left, cents, priced } = shopLeft(group);
+  total.hidden = left.length > 0 && !priced;
+  if (!left.length) total.replaceChildren(el('span', '', 'Listo, ya tenés todo.'));
+  else total.replaceChildren(el('span', '', 'Te falta ', el('span', 'shop-total-hint', '(1 de cada uno)')), el('strong', '', formatArs(cents)));
+}
+
+function syncUncheck(root) {
+  const button = root.querySelector('#lista-destildar');
+  if (button) button.hidden = !root.querySelector('input[data-shop]:checked');
+}
+
+function shopStatus(text) {
+  const status = $('#lista-estado');
+  if (status) status.textContent = text;
+}
+
+// Plain text by chain, without what is ticked: the phone's share menu, or the clipboard on a computer.
+async function shareShoppingList() {
+  const lines = [];
+  for (const group of document.querySelectorAll('.shop-chain')) {
+    const { left, cents, priced } = shopLeft(group);
+    if (!left.length) continue;
+    lines.push('', group.dataset.chain, ...left.map((item) => '- ' + item.dataset.text));
+    if (priced) lines.push('Te falta: ' + formatArs(cents) + ' (1 de cada uno)');
+  }
+  if (!lines.length) {
+    shopStatus('No queda nada sin tildar.');
+    return;
+  }
+  const site = document.querySelector('meta[property="og:site_name"]');
+  const updated = new Date(document.body.dataset.updated || '');
+  const title = 'Lista de compras' + (site ? ' de ' + site.content : '') + (Number.isNaN(updated.getTime()) ? '' : ', precios del ' + dayLabel(updated));
+  const text = title + '\n' + lines.join('\n') + '\n\n' + location.origin + '/';
+  if (window.matchMedia('(pointer: coarse)').matches && navigator.share) {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    shopStatus('Lista copiada. Pegala donde quieras.');
+  } catch {
+    shopStatus('No se pudo copiar la lista. Probá de nuevo.');
+  }
+}
+
+function setupShoppingList() {
+  const container = $('#guardados-lista');
+  if (!container) return;
+  document.querySelectorAll('.view-switch button[data-view]').forEach((button) => {
+    button.addEventListener('click', () => {
+      writeFlag(VIEW_KEY, button.dataset.view === 'list' ? 'lista' : null);
+      renderSaved();
+    });
+  });
+  container.addEventListener('change', (event) => {
+    const box = event.target;
+    if (box.id === 'lista-sin-oferta') {
+      writeFlag(LIST_GONE_KEY, box.checked ? '1' : null);
+      renderSaved().then(() => {
+        const again = $('#lista-sin-oferta');
+        if (again) again.focus();
+      });
+      return;
+    }
+    if (!box.dataset || !box.dataset.shop) return;
+    const ticks = readTicks();
+    if (box.checked) ticks[box.dataset.shop] = !box.closest('.shop-item-gone');
+    else delete ticks[box.dataset.shop];
+    writeTicks(ticks);
+    updateShopTotal(box.closest('.shop-chain'));
+    syncUncheck(container);
+  });
+  container.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.id === 'lista-compartir') shareShoppingList();
+    if (button.id === 'lista-destildar') {
+      writeTicks({});
+      container.querySelectorAll('input[data-shop]').forEach((box) => {
+        box.checked = false;
+      });
+      container.querySelectorAll('.shop-chain').forEach(updateShopTotal);
+      syncUncheck(container);
+      shopStatus('Listo, destildaste todo.');
+      const share = $('#lista-compartir');
+      if (share) share.focus();
+    }
+  });
 }
 
 // ---------- Alerts: "volvió a estar en oferta" (Web Push) ----------

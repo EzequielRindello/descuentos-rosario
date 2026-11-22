@@ -1261,9 +1261,156 @@ select:focus {
   color: var(--muted);
 }
 
+/* "Tarjetas | Lista de compras": two joined pill buttons. The current one is filled and keeps a
+   --line border (the blue fill alone is under 3:1 against the dark page). */
+.view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  margin: 0 0 4px;
+  border: 1.5px solid var(--control);
+  border-radius: 999px;
+}
+
+.view-switch button {
+  border-color: transparent;
+}
+
+.view-switch button[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--line);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* Shopping list: one panel per chain, rows that never move when ticked (you keep your place in
+   the aisle), price aligned on the right. */
+.shop {
+  margin: 12px 0;
+  max-width: 40rem;
+}
+
+.shop-chain {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 12px 16px;
+  margin: 0 0 12px;
+}
+
+.shop-chain-name {
+  font-size: 1rem;
+  margin: 0 0 2px;
+}
+
+.shop-count {
+  font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: normal;
+  color: var(--muted);
+}
+
+.shop-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shop-item + .shop-item {
+  border-top: 1px solid var(--border);
+}
+
+.shop-item label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 12px;
+  align-items: start;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.shop-item input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.shop-name {
+  grid-column: 2;
+  line-height: 1.35;
+}
+
+.shop-price {
+  grid-column: 3;
+  grid-row: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.shop-meta {
+  grid-column: 2 / 4;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.shop-item input:checked ~ .shop-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.shop-item input:checked ~ .shop-price,
+.shop-item-gone .shop-price {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.shop-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 4px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.shop-total strong {
+  font-size: 1rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-total-hint {
+  font-size: 0.8125rem;
+}
+
+.shop-gone {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.shop-gone p {
+  margin: 0 0 8px;
+}
+
+.shop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
 @media (pointer: coarse) {
   .btn-save,
-  .card-link {
+  .card-link,
+  .view-switch button,
+  .shop-actions button,
+  .shop-item label {
     min-height: 44px;
   }
 
