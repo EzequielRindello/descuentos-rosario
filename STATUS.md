@@ -321,6 +321,7 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `fb73246` | 27/11/2026 | Avisos en marcha: KV, clave pública VAPID en `cron/wrangler.jsonc` y `config/site.toml`, y `push_url` del Worker. En `release/v0.1.1`. |
 | `66ba01b` | 22/11/2026 | "Datos abiertos" al pie, fuera de la fila de pestañas (a 390 px quedaba cortada). En `release/v0.1.1`. |
 | `a326a47` | 22/11/2026 | Lista de compras dentro de "Tus guardados": subtotal por cadena y aviso de lo que salió de oferta, con opción de sumarlo. En `release/v0.1.1`. |
 | `bea4f97` | 22/11/2026 | Mismo producto en otra cadena por código de barras ("En Coto: $X", link y "(más barato)"). En `release/v0.1.1`. |
