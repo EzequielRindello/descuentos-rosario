@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-27T10:10:51-03:00",
+  "generated_at": "2026-11-27T10:13:01-03:00",
   "chains": {
     "carrefour": {
       "ok": true,
@@ -8,10 +8,10 @@
       "error": null
     },
     "coto": {
-      "ok": false,
-      "offers": 0,
-      "seconds": 1,
-      "error": "no offer types found in the product.tipoOferta dimension"
+      "ok": true,
+      "offers": 4702,
+      "seconds": 141,
+      "error": null
     },
     "dar": {
       "ok": true,
