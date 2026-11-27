@@ -37,7 +37,7 @@ Issue #2 (13/11/2026, run `43472763377`): DAR no respondió desde el runner (`tc
 **Lanzado el 13/11/2026 (`v0.1.0`):** repo público y sitio en producción.
 
 **En curso: `v0.1.1` en la rama `release/v0.1.1`** (sin mergear a `main`, nada publicado). Hecho: corrida automática a las 12 (`daily.yml` + Worker `cron/`), categorías propias, avisos de "volvió a estar en oferta" (código listo, sin poner en marcha). **Próximos pasos:**
-1. Poner en marcha los avisos (pasos en "Cómo hacer la corrida del día"): crear el KV, pegar su id en `cron/wrangler.jsonc`, cargar las claves VAPID (pública en `cron/wrangler.jsonc` y `config/site.toml`, privada como secret) y `push_url`. **Mientras `cron/wrangler.jsonc` tenga el id de KV de ejemplo, publicar el Worker falla** (también el disparo de las 12): no republicarlo hasta completar esto.
+1. ~~Poner en marcha los avisos~~ (27/11/2026): KV creado, claves VAPID y `push_url` cargadas, secret `VAPID_PRIVATE_KEY` y Worker `cron/` publicado. El botón de avisos aparece cuando se publique el sitio con esta config.
 2. Probar el push real en el celu (en la PC, Chrome no pudo registrarse en el servicio de push). Revisar a 390 px las categorías y el botón de avisos.
 3. Proponer otras features plausibles para la release (solo propuesta).
 4. PR `release/v0.1.1` → `main`, merge, tag `v0.1.1`, GitHub Release y deploy manual. Después: verificar `daily.yml` a mano y el disparo de las 12.
@@ -321,6 +321,8 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `66ba01b` | 22/11/2026 | "Datos abiertos" al pie, fuera de la fila de pestañas (a 390 px quedaba cortada). En `release/v0.1.1`. |
+| `a326a47` | 22/11/2026 | Lista de compras dentro de "Tus guardados": subtotal por cadena y aviso de lo que salió de oferta, con opción de sumarlo. En `release/v0.1.1`. |
 | `bea4f97` | 22/11/2026 | Mismo producto en otra cadena por código de barras ("En Coto: $X", link y "(más barato)"). En `release/v0.1.1`. |
 | `9b1513c` | 22/11/2026 | Fotos de las ofertas de DAR desde su servidor; una foto rota se saca de la tarjeta. En `release/v0.1.1`. |
 | `9b6fed4` | 21/11/2026 | Historial de precios: docs, Términos, Preguntas y `fetch-depth: 0` en `deploy.yml`. En `release/v0.1.1`. |

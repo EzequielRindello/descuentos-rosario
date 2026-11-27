@@ -23,7 +23,7 @@
     "SITE_URL": "https://ofertas-rosario.rindelloezequiel.workers.dev",
     // Public half of the VAPID pair (scripts/vapid-keys.mjs). Same value as vapid_public_key in
     // ../config/site.toml. Empty: no notifications are sent.
-    "VAPID_PUBLIC_KEY": ""
+    "VAPID_PUBLIC_KEY": "BFnl6o_T8DaLm49rxH6elTRtae-c_gcEtJsgFdJJkzOjNtOxVYmbn54s2hzUCfu7wWATzlTJbnNhJfIxyqhmnc0"
   },
   "kv_namespaces": [
     {
@@ -31,7 +31,7 @@
       // Create it once with: npx wrangler@4.155.0 kv namespace create SUBSCRIPTIONS --config cron/wrangler.jsonc
       // and paste the id it prints here.
       "binding": "SUBSCRIPTIONS",
-      "id": "REEMPLAZAR_CON_EL_ID_DEL_NAMESPACE"
+      "id": "6bea399859ac49828f8b63728b2c0bd0"
     }
   ],
   // Logs in the dashboard, to see a rejected dispatch (e.g. an expired token) or push.
