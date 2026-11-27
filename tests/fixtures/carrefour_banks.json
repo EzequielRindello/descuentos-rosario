@@ -1,0 +1,38 @@
+{
+ "data": {
+  "documents": [
+   {
+    "fields": [
+     {
+      "key": "id",
+      "value": "962da28b-7dae-11eb-82ac-02f0e64629af"
+     },
+     {
+      "key": "image",
+      "value": "patagonia.png"
+     },
+     {
+      "key": "name",
+      "value": "Patagonia"
+     }
+    ]
+   },
+   {
+    "fields": [
+     {
+      "key": "id",
+      "value": "b16eed64-2df2-11ec-82ac-12aeae09a3ef"
+     },
+     {
+      "key": "image",
+      "value": "mercadopago_ok.png"
+     },
+     {
+      "key": "name",
+      "value": "Mercado Pago"
+     }
+    ]
+   }
+  ]
+ }
+}

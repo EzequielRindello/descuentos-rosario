@@ -16,5 +16,10 @@ home_per_chain = 6
 # Mail de contacto (se muestra en preguntas frecuentes, términos y privacidad). Vacío = no se muestra.
 contact = "rindello14@gmail.com"
 
+# Avisos de "volvió a estar en oferta": URL del Worker de cron/ y clave pública VAPID
+# (node cron/scripts/vapid-keys.mjs). Con alguno vacío no hay botón de avisos. Ver STATUS.md.
+push_url = "https://ofertas-rosario-cron.rindelloezequiel.workers.dev"
+vapid_public_key = "BFnl6o_T8DaLm49rxH6elTRtae-c_gcEtJsgFdJJkzOjNtOxVYmbn54s2hzUCfu7wWATzlTJbnNhJfIxyqhmnc0"
+
 # URL del repo (se muestra en el pie como "Código fuente"). Vacío = no se muestra.
 repo = "https://github.com/EzequielRindello/descuentos-rosario"

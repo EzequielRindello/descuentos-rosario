@@ -13,6 +13,11 @@
 <legend>Cadena</legend>
 {% for c in chains %}{% if not c.failed %}<label class="chip-check"><input type="checkbox" name="cadena" value="{{ c.id }}" data-name="{{ c.name }}" data-hint="{{ c.hint }}" checked disabled> {{ c.name }}</label>
 {% endif %}{% endfor %}</fieldset>
+{% endif %}{% if categories and (not fixed or fixed.has_categories) %}<p class="field"><label for="f-cat">Categoría</label>
+<span class="select"><select id="f-cat" name="categoria" disabled>
+<option value="">Todas</option>
+{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>
+{% endfor %}</select></span></p>
 {% endif %}<p class="field"><label for="f-min">Descuento</label>
 <span class="select"><select id="f-min" name="min" disabled>
 <option value="">Cualquiera</option>

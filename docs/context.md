@@ -2,7 +2,7 @@
 
 Referencia técnica del proyecto: stack, reglas y cómo se lee cada fuente. Dónde estamos, qué falta y las decisiones tomadas están en `STATUS.md` (raíz del repo). El brief (`docs/brief.md`) explica el porqué.
 
-Última actualización: 11/11/2026.
+Última actualización: 21/11/2026.
 
 ## Stack
 
@@ -13,8 +13,9 @@ Referencia técnica del proyecto: stack, reglas y cómo se lee cada fuente. Dón
 | Frontend | HTML generado por Rust + JS plano, sin framework ni bundler |
 | PWA | `manifest.webmanifest` + `sw.js` |
 | Hosting | Cloudflare Workers con static assets, `wrangler deploy` |
-| Corrida diaria | GitHub Actions a mano, sin cron: un workflow de scrape por cadena (`scrape-<cadena>.yml`, commitea su archivo de `data/`) y uno de deploy (`deploy.yml`: genera `dist/` y hace `wrangler deploy` con token de API) |
-| Tests | `cargo test` con respuestas de muestra guardadas |
+| Corrida diaria | GitHub Actions: `daily.yml` scrapea las tres cadenas y publica; lo dispara a las 12:00 (hora argentina) el Worker `ofertas-rosario-cron` (`cron/`, Cron Trigger `0 15 * * *` UTC, llama a la API `workflow_dispatch` con un token fine-grained). A mano siguen un workflow de scrape por cadena (`scrape-<cadena>.yml`, commitea su archivo de `data/`) y uno de deploy (`deploy.yml`: genera `dist/` desde `main` y hace `wrangler deploy` con token de API) |
+| Avisos | Web Push (VAPID, RFC 8292) sin contenido desde el Worker `ofertas-rosario-cron` (`cron/src/push.js`): `POST /suscripcion` (`endpoint`, `saved`, `onOffer`), `POST /baja`, `POST /novedades` (lo que volvió, para el texto de la notificación), solo desde el origen del sitio. KV `SUBSCRIPTIONS`: clave `sub:` + SHA-256 del endpoint; valor `endpoint`, `saved`, `onOffer`, `lastReturned`. Cron `30 15 * * *` UTC (12:30): lee `/datos/buscar.json` publicado y avisa a quien tenga un guardado en oferta que antes no estaba; 404/410 del servicio de push borra la suscripción. Endpoints aceptados: FCM, Mozilla, Apple y Windows. El sitio toma `push_url` y `vapid_public_key` de `config/site.toml` (CSP `connect-src` y `__PUSH_URL__` de `sw.js` se arman en el build) |
+| Tests | `cargo test` con respuestas de muestra guardadas; `node --test cron/` para el Worker |
 
 Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, WSL. Los comandos están en `STATUS.md`.
 
@@ -22,7 +23,9 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 
 - `data/offers/<cadena>.json`: un array con un objeto `Offer` por línea, ordenado por `id`. Así el commit diario solo muestra cambios reales de precio.
 - Los precios van en **centavos** (`price`, `list_price`), enteros, para evitar errores de redondeo.
-- Campos de `Offer`: `chain`, `store`, `id` (id propio de la cadena), `ean`, `name`, `price`, `list_price`, `discount_pct`, `promo`, `url`, `image`, `source` (`web`).
+- Campos de `Offer`: `chain`, `store`, `id` (id propio de la cadena), `ean`, `name`, `price`, `list_price`, `discount_pct`, `promo`, `url`, `image`, `source` (`web`), `category` (id de categoría del sitio; no está en DAR ni en los datos anteriores a v0.1.1).
+- Categorías: las define `[[categories]]` en `config/stores.toml` (id, nombre y de dónde sale en cada cadena). Se asignan al scrapear: Carrefour por el slug de categoría que se está leyendo (si un producto sale en dos, gana el primero de `carrefour.categories`); Coto por `allAncestors.displayName`, que es un conjunto de nombres sin orden (sección, subcategorías y "CotoDigital"): primero se buscan subcategorías (`coto`), después secciones (`coto_section`), y gana la primera categoría de la lista que coincide. Coto avisa en el log cuántas ofertas quedaron sin categoría. Árbol de Coto revisado el 21/11/2026: secciones Almacén, Bebidas, Frescos, Congelados, Limpieza y Perfumería (más las excluidas); "Galletitas" está dentro de "Panaderia" y "Hamburguesas y Milanesas" dentro de Congelados. DAR no publica categorías en su listado.
+- `data/promos/<cadena>.json` (Carrefour y Coto): descuentos por banco, tarjeta o billetera, un `BankPromo` por línea, ordenado por `id`. Campos: `chain`, `id`, `discount_pct`, `title`, `payment`, `conditions`, `days` (1 = lunes ... 7 = domingo; vacío si la cadena no lo dice), `online`, `in_store`, `formats`, `valid_until` (aaaa-mm-dd), `legal`, `url`. Se leen en el scrape de cada cadena, con el mismo cliente, después de las ofertas. Si fallan (o traen 0 después de un día con promos) queda el archivo anterior y la cadena no se marca como caída. Los nombres de bancos y logos salen de `[promo_names]` en `config/stores.toml`.
 - `data/run.json`: resumen de la última corrida por cadena (`ok`, `offers`, `seconds`, `error`). Si una cadena falla (error o 0 ofertas), su archivo de ofertas del día anterior queda como está en `data/`, pero el sitio la publica vacía con un aviso (ver abajo).
 - El detector descarta `list_price` menores o iguales al precio, o más de 5 veces mayores (caso Jumbo), y calcula `discount_pct` truncado (nunca muestra más descuento que el real; 35,5% es 35, como el "35%Dto" de Coto).
 
@@ -32,12 +35,14 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 
 | Ruta | Qué es |
 | --- | --- |
-| `/` | Portada: búsqueda con filtros, guardados, las 20 mejores ofertas de cada cadena. Los filtros van en la URL: `q` (texto), `cadena` (ids separados por coma), `min` (descuento mínimo), `promo` (`rebaja`, `nxm`, `2da`, `varias`, según el texto de la promo) y `orden` (`precio`, `nombre`; vacío = descuento). |
+| `/` | Portada: búsqueda con filtros, guardados, las 20 mejores ofertas de cada cadena. Los filtros van en la URL: `q` (texto), `cadena` (ids separados por coma), `categoria` (id de categoría), `min` (descuento mínimo), `promo` (`rebaja`, `nxm`, `2da`, `varias`, según el texto de la promo) y `orden` (`precio`, `nombre`; vacío = descuento). |
 | `/<cadena>/`, `/<cadena>/pagina/N/` | Todas las ofertas de la cadena, de a 100, ordenadas por descuento. |
 | `/datos/` | Explicación de los datos abiertos y sus campos. |
 | `/datos/<cadena>.json`, `/datos/hoy.csv` | Datos abiertos. |
 | `/preguntas-frecuentes/`, `/terminos/`, `/privacidad/` | Páginas informativas y legales. Muestran `contact` de `config/site.toml` si no está vacío. |
-| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura]`. |
+| `/datos/buscar.json` | Índice compacto para la búsqueda: `[clave, cadena, nombre, precio, precio_anterior, descuento, promo, url, miniatura, categoria, historial, otra_cadena]`. `historial` es `[tipo, texto]` (ver "Historial de precios") o `null`; `otra_cadena`, ver "Mismo producto en otra cadena". |
+| `/bancos/` | Descuentos por banco agrupados por día (una promo de varios días aparece en cada uno; las sin día van en "Sin día indicado"). `app.js` (`setupPromoDays`) marca el día de hoy en hora argentina y lo pone primero. Sin promos vigentes no hay página ni pestaña. El build saca las que tienen `valid_until` pasado. |
+| `/datos/bancos.json` | Las mismas promos en JSON (array de `BankPromo`). |
 | `/datos/actualizado.json` | `{"generated_at": "..."}` de la última corrida. El service worker no lo cachea: `app.js` lo compara con `body[data-updated]` de la página para avisar si las ofertas en pantalla no son de hoy. |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt` | SEO y descubrimiento por IAs. |
 | `/manifest.webmanifest`, `/sw.js`, `/app.js`, `/icons/` | PWA. |
@@ -49,6 +54,19 @@ Entorno de desarrollo: Rust estable (probado con 1.99.1) en Linux; en Windows, W
 Si `run.json` marca una cadena con `ok: false`, el build la publica sin ofertas: su sección y la portada dicen "Hoy no pudimos leer las ofertas de ...", y queda fuera de `buscar.json` y `hoy.csv` (`datos/<cadena>.json` sale como `[]`). Plantilla del aviso: `templates/failed.html`.
 
 Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con `include_str!`/`include_bytes!`: hay que recompilar para ver cambios. La clave de cada oferta es `<cadena>:<id>`. Los guardados van en `localStorage` (`ofertas-rosario:guardados`) como `[{ "key": "<cadena>:<id>", "name": "..." }]`; versiones viejas guardaban solo las claves, y `app.js` las sigue leyendo.
+
+### Historial de precios
+
+`src/history.rs`. El build lee de git los commits de `data/offers/<cadena>.json` de los últimos 30 días (el bot commitea cada scrape) y arma qué decían los datos cada día; un día sin commit (los datos no cambiaron) toma el último anterior. Sin git o fuera de un repo, no hay comparaciones. Por eso `deploy.yml` hace checkout con `fetch-depth: 0`. Solo hay precio de los días en que el producto estuvo en oferta. Con 3 días previos o más, cada oferta puede tener una marca (`Signal`), en la tarjeta (`templates/offers.html` y `renderList` en `app.js`) y en `buscar.json`:
+
+- `warn` "El precio anterior subió hace poco": el tachado de hoy supera en más de 15% al más bajo visto, y el precio no bajó (no es menor que el mínimo visto) ni subió (no supera la mediana). Si suben los dos, es inflación y no se marca.
+- `good` "N% menos que en los últimos 30 días": solo para productos que nunca tuvieron precio anterior (DAR), al menos 5% por debajo de la mediana.
+- `good` "El más bajo en 30 días": menor que todos los precios vistos.
+- Nada si el precio cae más de 60% contra el mínimo visto: casi siempre es un cambio de unidad o envase.
+
+### Mismo producto en otra cadena
+
+`same_product` en `src/site.rs`: junta las ofertas del día por código de barras (sin ceros adelante; se descartan los de menos de 8 dígitos y los de 13 que empiezan con 2, que son códigos propios de cada súper, como los de verdulería pesada). Si el mismo código está en oferta en otra cadena, la tarjeta muestra "En Coto: $X" con link a esa oferta, "c/u llevando N" si es una promo por cantidad y "(más barato)" si allá cuesta menos; con varias ofertas del mismo código, se toma la más barata. DAR no publica EAN. En `buscar.json` es la columna 12: `[cadena, precio en centavos, url, unidades]` o `null`. El 21/11/2026 coincidían 554 productos.
 
 ## SEO y descubrimiento por IAs
 
@@ -76,7 +94,7 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 - La región cambia el precio: yerba Mañanita 1 kg a $4.589 con región y $5.749 sin región. En una muestra del 11/11/2026, 4 de 20 ofertas tenían otro precio sin región.
 - El seller `carrefourar0018` es el **Hiper Rosario Fisherton** (Av. Circunvalación 1977 bis): punto de retiro `carrefourar0018_0018PR` en `/api/checkout/pub/pickup-points?postalCode=2000&countryCode=ARG`. También atiende el retiro en Hiper Rosario Sur.
 - Ojo: el código postal de Rosario para envío a domicilio (`/api/checkout/pub/regions?country=ARG&postalCode=2000`) da **otra región**, con vendedores de otras ciudades (Hiper Merlo, Market Palomar...). Quien entra a la web con su CP puede ver otro precio; para ver el nuestro hay que elegir retiro en Hiper Rosario Fisherton. La web no toma `regionId` por URL (se guarda en una cookie), así que el link a la cadena no puede fijarla.
-- Imágenes: `items[0].images[0].imageUrl`, en `carrefourar.vtexassets.com`. Coto: `product.mediumImage.url`, en `static.cotodigital3.com.ar`. DAR: `Fotos/Articulos/<codigo>.jpg` en su propio servidor. Se guardan en `image`. Las páginas muestran una miniatura de Carrefour (`/ids/<id>-160-160/`) y de Coto (la "medium" tal cual), cargada desde la cadena; DAR no (servidor propio chico). Los dominios están en la CSP de `web/_headers` y en `thumbnail()` de `src/site.rs`: si cambian, tocar los dos.
+- Imágenes: `items[0].images[0].imageUrl`, en `carrefourar.vtexassets.com`. Coto: `product.mediumImage.url`, en `static.cotodigital3.com.ar`. DAR: `Fotos/Articulos/<codigo>.jpg` en su propio servidor. Se guardan en `image`. Las páginas muestran una miniatura de Carrefour (`/ids/<id>-160-160/`) y de Coto y DAR (la foto tal cual: la de DAR es de 280 px y pesa 3 a 12 KB), cargada desde la cadena con carga diferida. Si una foto da error, `app.js` la saca y la tarjeta queda sin foto. Los dominios están en la CSP de `web/_headers` y en `thumbnail()` de `src/site.rs`: si cambian, tocar los dos.
 - Categorías de súper (de `/api/catalog_system/pub/category/tree/1`): `almacen`, `desayuno-y-merienda`, `bebidas`, `lacteos-y-productos-frescos`, `carnes-y-pescados`, `frutas-y-verduras`, `panaderia`, `congelados`, `limpieza`, `perfumeria-y-farmacia`, `mundo-bebe`, `mascotas`.
 - Por producto: `productName`, `items[0].ean`, `items[0].sellers[0].commertialOffer.{Price, ListPrice, AvailableQuantity}`. Descuento = 1 − Price / ListPrice.
 - Se pagina hasta que el descuento llega a 0. Sin `hideUnavailableItems` aparecen primero productos sin stock con precio 0.
@@ -120,7 +138,7 @@ Las plantillas (`templates/`) y los assets (`web/`) se embeben en el binario con
 
 ### Promos por banco y medio de pago (revisado el 13/11/2026)
 
-Sin implementar. Por producto no vienen: `product.dtoDescuentosMediosPago` de Coto solo trae cuotas sin interés (40 de 600 productos, "pagando con todas las tarjetas").
+Implementado en v0.1.1 (`src/scrapers/promos.rs`, fixtures en `tests/fixtures/*_promos.json`). Revisado de nuevo el 21/11/2026: Carrefour 31 vigentes (quedan 23), Coto 37 digitales y 49 de sucursal (quedan 30 tras unir repetidas). Filtros: solo las que tienen %; en Carrefour, si el texto lista provincias ("provincia(s) de", "válido para tiendas de") tiene que nombrar Santa Fe o Rosario (la dirección de la empresa en CABA no cuenta); en Coto, afuera las de CABA ("porteña", "CABA", "Ciudad Autónoma"). Riesgo conocido: un legal que nombre al "Banco de la Provincia de Buenos Aires" en una promo nacional queda afuera. Coto: la misma promo online y en sucursal se une en una; el prefijo "Exclusivo en sucursales." se saca del título; los días vienen con `id` 1 = domingo ... 7 = sábado. Carrefour: `active_to` es la medianoche UTC en que termina, así que el último día es el anterior en hora argentina. Por producto no vienen: `product.dtoDescuentosMediosPago` de Coto solo trae cuotas sin interés (40 de 600 productos, "pagando con todas las tarjetas").
 
 **Carrefour**: la página `/descuentos-bancarios` arma la lista en el navegador con la app `valtech.carrefourar-bank-promotions`, que lee la entidad de Master Data `BP` por el GraphQL público del sitio:
 

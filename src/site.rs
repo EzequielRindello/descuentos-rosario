@@ -4,6 +4,7 @@
 //! AI crawlers can read them. JavaScript only adds search, saved offers and the install prompt.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -14,8 +15,9 @@ use minijinja::{Environment, Value};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::config::Config;
-use crate::model::{Chain, Offer};
+use crate::config::{Category, Config};
+use crate::history::{self, Signal};
+use crate::model::{BankPromo, Chain, Offer};
 use crate::output::RunReport;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -31,6 +33,12 @@ pub struct SiteConfig {
     /// Public source repository URL (linked in the footer). Hidden when empty.
     #[serde(default)]
     pub repo: String,
+    /// Worker that receives the push subscriptions (`cron/`). Empty: no alerts button.
+    #[serde(default)]
+    pub push_url: String,
+    /// Public VAPID key (base64url) the browser subscribes with. Empty: no alerts button.
+    #[serde(default)]
+    pub vapid_public_key: String,
 }
 
 impl SiteConfig {
@@ -57,6 +65,28 @@ struct OfferView {
     url: Option<String>,
     /// Thumbnail URL on the chain's image server (Carrefour and Coto only).
     image: Option<String>,
+    /// What the price history says (`history::Signal`): kind ("good", "warn") and text.
+    history: Option<(&'static str, String)>,
+    /// The same product (same barcode) on offer today in another chain.
+    other: Option<OtherView>,
+}
+
+/// The same product in another chain, as the offer card shows it.
+#[derive(Debug, Serialize)]
+struct OtherView {
+    chain_name: &'static str,
+    price: String,
+    units: Option<u8>,
+    url: Option<String>,
+    /// Cheaper there than here.
+    cheaper: bool,
+}
+
+/// What the build adds to each offer from outside its own data: the price history and the same
+/// product in another chain. Keyed by offer key (`<chain>:<id>`).
+struct Extras<'a> {
+    signals: HashMap<String, Signal>,
+    same: HashMap<String, &'a Offer>,
 }
 
 #[derive(Debug, Serialize)]
@@ -69,10 +99,49 @@ struct ChainView {
     count: usize,
     count_label: String,
     has_list_prices: bool,
+    /// Some offer has a site category (never DAR): the chain page shows the "Categoría" filter.
+    has_categories: bool,
     /// The last scrape of this chain failed: the site shows no offers instead of stale ones.
     failed: bool,
     top: Vec<OfferView>,
 }
+
+/// One bank promo as the `/bancos/` page shows it.
+#[derive(Debug, Serialize)]
+struct PromoView {
+    chain_name: &'static str,
+    discount_pct: u8,
+    title: String,
+    payment: Option<String>,
+    conditions: Option<String>,
+    /// "Online", "En sucursal (Hiper, Market)", "Online y en sucursal".
+    #[serde(rename = "where")]
+    where_label: String,
+    /// dd/mm/yyyy.
+    valid_until: Option<String>,
+    legal: Option<String>,
+    url: String,
+}
+
+/// One day of the week on the `/bancos/` page (id 0: promos with no day given).
+#[derive(Debug, Serialize)]
+struct PromoDay {
+    id: u8,
+    slug: &'static str,
+    name: &'static str,
+    promos: Vec<PromoView>,
+}
+
+const PROMO_DAYS: [(u8, &str, &str); 8] = [
+    (1, "lunes", "Lunes"),
+    (2, "martes", "Martes"),
+    (3, "miercoles", "Miércoles"),
+    (4, "jueves", "Jueves"),
+    (5, "viernes", "Viernes"),
+    (6, "sabado", "Sábado"),
+    (7, "domingo", "Domingo"),
+    (0, "sin-dia", "Sin día indicado"),
+];
 
 struct ChainData {
     chain: Chain,
@@ -88,8 +157,20 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
     let chains = load_chains(data_dir, stores, report.as_ref())?;
     // Machine-readable run time: pages carry it so app.js can tell stale (cached) pages apart.
     let updated_iso = report.as_ref().map(|r| r.generated_at.clone()).unwrap_or_default();
+    let categories = category_views(&chains, &stores.categories);
+    let today = chrono::Utc::now().with_timezone(&chrono::FixedOffset::west_opt(3 * 3600).expect("valid offset")).format("%Y-%m-%d").to_string();
+    let promos = load_promos(data_dir, &today)?;
+    // Compared with the days before this run (its own date, not the build's).
+    let run_day = report.as_ref().and_then(|r| DateTime::parse_from_rfc3339(&r.generated_at).ok()).map_or(today.clone(), |d| d.format("%Y-%m-%d").to_string());
+    let signals = history_signals(&chains, &history::load(data_dir, &run_day));
+    let extras = Extras { signals, same: same_product(&chains) };
+    let view = |offer: &Offer| view(offer, &extras);
     let mut env = environment()?;
+    // The "Bancos" tab only shows up when there are promos to show.
+    env.add_global("has_promos", !promos.is_empty());
     env.add_global("updated_iso", updated_iso.clone());
+    // The "Categoría" filter, on the home page and every chain page that has categories.
+    env.add_global("categories", Value::from(minijinja::value::Serde(&categories)));
 
     if out_dir.exists() {
         fs::remove_dir_all(out_dir).with_context(|| format!("cleaning {}", out_dir.display()))?;
@@ -106,6 +187,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
             count: c.offers.len(),
             count_label: group_thousands(c.offers.len() as u64),
             has_list_prices: c.offers.iter().any(|o| o.list_price.is_some()),
+            has_categories: c.offers.iter().any(|o| o.category.is_some()),
             failed: c.failed,
             top: highlights(&c.offers, site.home_per_chain).into_iter().map(view).collect(),
         })
@@ -128,7 +210,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "json_ld": json_ld(&home_ld),
         "total_label": group_thousands(total as u64),
         "available_label": join_names(&available),
-        "quick": quick_counts(&chains),
+        "quick": quick_counts(&chains, &categories),
     })))?;
 
     // One paginated section per chain.
@@ -181,7 +263,23 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "description": "Descargá las ofertas del día de los supermercados de Rosario en JSON y CSV. Libres para usar.",
         "canonical": format!("{}/datos/", site.url),
     })))?;
-    write_data_files(out_dir, &chains)?;
+    write_data_files(out_dir, &chains, &extras)?;
+    fs::write(out_dir.join("datos/bancos.json"), serde_json::to_string(&promos)?)?;
+
+    // Bank promos, by day of the week.
+    if !promos.is_empty() {
+        let url = format!("{}/bancos/", site.url);
+        sitemap.push(url.clone());
+        let promo_chains: Vec<&str> = Chain::ALL.into_iter().filter(|c| promos.iter().any(|p| p.chain == *c)).map(Chain::name).collect();
+        render(&env, "bancos.html", &out_dir.join("bancos/index.html"), &context(site, &updated, &chain_views, json!({
+            "title": format!("Descuentos por banco en supermercados de Rosario | {}", site.name),
+            "description": format!("Qué descuento hay cada día con bancos, tarjetas y billeteras en {} de Rosario. Actualizado el {updated}.", join_names(&promo_chains)),
+            "canonical": url,
+            "promo_chains": join_names(&promo_chains),
+            "promo_count": promos.len(),
+            "promo_days": promo_days(&promos),
+        })))?;
+    }
     // Tiny file the service worker never caches: app.js compares it with the page's own date.
     fs::write(out_dir.join("datos/actualizado.json"), serde_json::to_string(&json!({ "generated_at": updated_iso }))?)?;
 
@@ -210,7 +308,7 @@ pub fn build(data_dir: &Path, out_dir: &Path, site: &SiteConfig, stores: &Config
         "noindex": true,
     })))?;
 
-    write_static_assets(out_dir, &chain_views)?;
+    write_static_assets(out_dir, &chain_views, &site.push_url)?;
     write_seo_files(out_dir, site, &chain_views, &sitemap, &updated)?;
     tracing::info!("site: {} pages, {total} offers -> {}", sitemap.len(), out_dir.display());
     Ok(())
@@ -226,6 +324,7 @@ fn environment() -> Result<Environment<'static>> {
     env.add_template("index.html", include_str!("../templates/index.html"))?;
     env.add_template("chain.html", include_str!("../templates/chain.html"))?;
     env.add_template("datos.html", include_str!("../templates/datos.html"))?;
+    env.add_template("bancos.html", include_str!("../templates/bancos.html"))?;
     env.add_template("404.html", include_str!("../templates/404.html"))?;
     env.add_template("preguntas.html", include_str!("../templates/preguntas.html"))?;
     env.add_template("terminos.html", include_str!("../templates/terminos.html"))?;
@@ -252,6 +351,58 @@ fn render(env: &Environment, template: &str, out: &Path, ctx: &Value) -> Result<
 
 fn page_path(base: &str, page: usize) -> String {
     if page == 1 { base.to_string() } else { format!("{base}pagina/{page}/") }
+}
+
+/// Bank promos of every chain that has a promos file, minus the ones already over (a chain whose
+/// promos could not be read keeps an old file). Biggest discount first.
+fn load_promos(data_dir: &Path, today: &str) -> Result<Vec<BankPromo>> {
+    let mut promos = Vec::new();
+    for chain in Chain::ALL {
+        let path = data_dir.join("promos").join(format!("{}.json", chain.id()));
+        if !path.exists() {
+            continue;
+        }
+        let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+        let chain_promos: Vec<BankPromo> = serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        promos.extend(chain_promos.into_iter().filter(|p| p.valid_until.as_deref().is_none_or(|until| until >= today) && p.url.starts_with("https://")));
+    }
+    promos.sort_by(|a, b| b.discount_pct.cmp(&a.discount_pct).then_with(|| a.chain.cmp(&b.chain)).then_with(|| a.title.cmp(&b.title)));
+    Ok(promos)
+}
+
+/// Groups the promos by day: one that runs several days shows up in each of them.
+fn promo_days(promos: &[BankPromo]) -> Vec<PromoDay> {
+    PROMO_DAYS
+        .iter()
+        .map(|&(id, slug, name)| PromoDay {
+            id,
+            slug,
+            name,
+            promos: promos.iter().filter(|p| if id == 0 { p.days.is_empty() } else { p.days.contains(&id) }).map(promo_view).collect(),
+        })
+        .filter(|day| !day.promos.is_empty())
+        .collect()
+}
+
+fn promo_view(promo: &BankPromo) -> PromoView {
+    let formats = if promo.formats.is_empty() { String::new() } else { format!(" ({})", promo.formats.join(", ")) };
+    let where_label = match (promo.online, promo.in_store) {
+        (true, true) => format!("Online y en sucursal{formats}"),
+        (true, false) => "Solo online".to_string(),
+        (false, true) => format!("Solo en sucursal{formats}"),
+        (false, false) => "Ver dónde aplica en el legal".to_string(),
+    };
+    PromoView {
+        chain_name: promo.chain.name(),
+        discount_pct: promo.discount_pct,
+        title: promo.title.clone(),
+        payment: promo.payment.clone(),
+        conditions: promo.conditions.clone(),
+        where_label,
+        valid_until: promo.valid_until.as_deref().and_then(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()).map(|d| d.format("%d/%m/%Y").to_string()),
+        legal: promo.legal.clone(),
+        url: promo.url.clone(),
+    }
 }
 
 fn read_report(data_dir: &Path) -> Option<RunReport> {
@@ -328,8 +479,67 @@ fn highlights(offers: &[Offer], n: usize) -> Vec<&Offer> {
         .collect()
 }
 
-fn view(offer: &Offer) -> OfferView {
+/// Offer key -> what its price history says, for today's offers that have something to say.
+fn history_signals(chains: &[ChainData], history: &history::History) -> HashMap<String, Signal> {
+    chains
+        .iter()
+        .flat_map(|c| &c.offers)
+        .filter_map(|offer| Some((format!("{}:{}", offer.chain.id(), offer.id), history::signal(offer, history.past(offer))?)))
+        .collect()
+}
+
+/// Barcode that identifies the same product in every chain: GTIN-8/12/13/14 without leading
+/// zeros. Codes starting with 2 are each store's own (weighed produce, in-store items) and never
+/// match across chains.
+fn comparable_ean(ean: Option<&str>) -> Option<&str> {
+    let ean = ean?.trim();
+    if !(8..=14).contains(&ean.len()) || !ean.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let trimmed = ean.trim_start_matches('0');
+    (trimmed.len() >= 8 && !(ean.len() == 13 && ean.starts_with('2'))).then_some(trimmed)
+}
+
+/// Offer key -> the same product (same barcode) on offer today in another chain, its cheapest
+/// offer there. DAR publishes no barcodes, so this is Carrefour and Coto.
+fn same_product(chains: &[ChainData]) -> HashMap<String, &Offer> {
+    let mut by_ean: HashMap<(&str, Chain), &Offer> = HashMap::new();
+    for offer in chains.iter().flat_map(|c| &c.offers) {
+        if let Some(ean) = comparable_ean(offer.ean.as_deref()) {
+            by_ean.entry((ean, offer.chain)).and_modify(|o| if offer.price < o.price { *o = offer }).or_insert(offer);
+        }
+    }
+    let mut same = HashMap::new();
+    for offer in chains.iter().flat_map(|c| &c.offers) {
+        let Some(ean) = comparable_ean(offer.ean.as_deref()) else { continue };
+        // The cheapest other chain, when there are several.
+        let other = Chain::ALL
+            .into_iter()
+            .filter(|c| *c != offer.chain)
+            .filter_map(|c| by_ean.get(&(ean, c)).copied())
+            .min_by_key(|o| o.price);
+        if let Some(other) = other {
+            same.insert(format!("{}:{}", offer.chain.id(), offer.id), other);
+        }
+    }
+    same
+}
+
+fn other_view(offer: &Offer, other: &Offer) -> OtherView {
+    OtherView {
+        chain_name: other.chain.name(),
+        price: format_ars(other.price),
+        units: promo_units(other.promo.as_deref()),
+        url: other.url.clone(),
+        cheaper: other.price < offer.price,
+    }
+}
+
+fn view(offer: &Offer, extras: &Extras) -> OfferView {
+    let key = format!("{}:{}", offer.chain.id(), offer.id);
     OfferView {
+        history: extras.signals.get(&key).map(|s| (s.kind(), s.label())),
+        other: extras.same.get(&key).map(|other| other_view(offer, other)),
         key: format!("{}:{}", offer.chain.id(), offer.id),
         name: offer.name.clone(),
         chain_name: offer.chain.name(),
@@ -385,7 +595,7 @@ fn promo_kind(offer: &Offer) -> &'static str {
 
 /// How many of today's offers each home shortcut finds ("50% o más", "2x1 y 3x2"...). Zero means
 /// the shortcut is hidden. Failed chains have no offers, same as in the search index.
-fn quick_counts(chains: &[ChainData]) -> serde_json::Value {
+fn quick_counts(chains: &[ChainData], categories: &[CategoryView]) -> serde_json::Value {
     let offers = || chains.iter().flat_map(|c| c.offers.iter());
     let label = |n: usize| (n > 0).then(|| group_thousands(n as u64));
     json!({
@@ -393,52 +603,32 @@ fn quick_counts(chains: &[ChainData]) -> serde_json::Value {
         "min40": label(offers().filter(|o| o.discount_pct.unwrap_or(0) >= 40).count()),
         "nxm": label(offers().filter(|o| promo_kind(o) == "nxm").count()),
         "second": label(offers().filter(|o| promo_kind(o) == "2da").count()),
-        "words": QUICK_WORDS
-            .iter()
-            .filter_map(|phrase| {
-                let n = offers().filter(|o| matches_search(&o.name, phrase)).count();
-                // "+" for spaces: URLSearchParams reads it back as a space.
-                label(n).map(|count| json!({ "word": phrase, "query": phrase.replace(' ', "+"), "count": count }))
-            })
-            .collect::<Vec<_>>(),
+        "categories": categories,
     })
 }
 
-/// Same rule as the search in app.js: every word of two letters or more appears in the name, in
-/// any order ("alimento para perro" finds "Alimento seco para perro Pedigree").
-fn matches_search(name: &str, phrase: &str) -> bool {
-    let name = fold(name);
-    fold(phrase).split_whitespace().filter(|w| w.chars().count() > 1).all(|w| name.contains(w))
+/// A site category with offers today, for the home shortcuts and the "Categoría" filter.
+#[derive(Debug, Serialize)]
+struct CategoryView {
+    id: String,
+    name: String,
+    count: String,
 }
 
-/// Everyday products suggested under the home search box (only those with offers today): the
-/// basic food basket first, then drinks, cleaning, diapers and pet food. Words that also match
-/// unrelated products by substring are left out ("pan" finds "panales", "vino" finds "vinagre",
-/// "pollo" finds chicken-flavored dog food).
-const QUICK_WORDS: [&str; 19] = [
-    "yerba",
-    "leche",
-    "carne",
-    "huevos",
-    "fideos",
-    "arroz",
-    "harina",
-    "azúcar",
-    "aceite",
-    "queso",
-    "galletitas",
-    "café",
-    "gaseosa",
-    "cerveza",
-    "papel higiénico",
-    "detergente",
-    "pañales",
-    "alimento para perro",
-    "alimento para gato",
-];
+/// The configured categories that have offers today, in config order. Empty when the data has no
+/// categories yet (written before they existed): then neither the shortcuts nor the filter show.
+fn category_views(chains: &[ChainData], categories: &[Category]) -> Vec<CategoryView> {
+    categories
+        .iter()
+        .filter_map(|category| {
+            let n = chains.iter().flat_map(|c| &c.offers).filter(|o| o.category.as_deref() == Some(category.id.as_str())).count();
+            (n > 0).then(|| CategoryView { id: category.id.clone(), name: category.name.clone(), count: group_thousands(n as u64) })
+        })
+        .collect()
+}
 
 /// Lowercase without accents, like `normalize` in app.js (enough for Spanish product names).
-fn fold(text: &str) -> String {
+pub(crate) fn fold(text: &str) -> String {
     text.to_lowercase()
         .chars()
         .map(|c| match c {
@@ -457,11 +647,12 @@ fn fold(text: &str) -> String {
 /// Image hosts the pages may load from. Must match `img-src` in `web/_headers`.
 const CARREFOUR_IMAGES: &str = "https://carrefourar.vtexassets.com/";
 const COTO_IMAGES: &str = "https://static.cotodigital3.com.ar/";
+const DAR_IMAGES: &str = "https://www.darentucasa.com.ar/Fotos/";
 
 /// Small product photo shown next to an offer, loaded by the visitor's browser from the chain's
 /// image server. Carrefour gets a 160 px version (VTEX resizes on the fly: `/ids/<id>-160-160/`);
-/// Coto's "medium" photo is already small. DAR is left out: it serves photos from its own small
-/// server and we don't want to load it with every visit.
+/// Coto's "medium" and DAR's photos are already small (DAR's are 280 px, 3 to 12 KB, from its own
+/// server; lazy loading keeps the requests to what is on screen).
 fn thumbnail(offer: &Offer) -> Option<String> {
     let url = offer.image.as_deref()?;
     match offer.chain {
@@ -470,6 +661,7 @@ fn thumbnail(offer: &Offer) -> Option<String> {
             Some(IDS.replace(url, "${1}-160-160/").into_owned())
         }
         Chain::Coto if url.starts_with(COTO_IMAGES) => Some(url.to_string()),
+        Chain::Dar if url.starts_with(DAR_IMAGES) => Some(url.to_string()),
         _ => None,
     }
 }
@@ -537,12 +729,13 @@ fn json_ld(value: &serde_json::Value) -> String {
     value.to_string().replace("</", "<\\/")
 }
 
-fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
+fn write_data_files(out_dir: &Path, chains: &[ChainData], extras: &Extras) -> Result<()> {
     let dir = out_dir.join("datos");
     fs::create_dir_all(&dir)?;
     let mut search_rows = Vec::new();
     let mut csv = csv::Writer::from_path(dir.join("hoy.csv"))?;
-    csv.write_record(["cadena", "sucursal", "id", "ean", "nombre", "precio_centavos", "precio_anterior_centavos", "descuento_pct", "promo", "url"])?;
+    // New columns go at the end, so scripts that read columns by position keep working.
+    csv.write_record(["cadena", "sucursal", "id", "ean", "nombre", "precio_centavos", "precio_anterior_centavos", "descuento_pct", "promo", "url", "categoria"])?;
     for data in chains {
         fs::write(dir.join(format!("{}.json", data.chain.id())), serde_json::to_string(&data.offers)?)?;
         for offer in &data.offers {
@@ -558,10 +751,16 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 opt(offer.discount_pct.map(|p| p.to_string())),
                 opt(offer.promo.clone()),
                 opt(offer.url.clone()),
+                opt(offer.category.clone()),
             ])?;
-            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image].
+            // Compact rows for the in-browser search: [key, chain, name, price, list, pct, promo, url, image, category, history, other].
+            // history is [kind, text] or null (see `history::Signal`).
+            let key = format!("{}:{}", offer.chain.id(), offer.id);
+            let history = extras.signals.get(&key).map(|s| json!([s.kind(), s.label()]));
+            // [chain name, price in cents, url, units] of the same product in another chain.
+            let other = extras.same.get(&key).map(|o| json!([o.chain.name(), o.price, o.url, promo_units(o.promo.as_deref())]));
             search_rows.push(json!([
-                format!("{}:{}", offer.chain.id(), offer.id),
+                key,
                 offer.chain.name(),
                 offer.name,
                 offer.price,
@@ -570,6 +769,9 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
                 offer.promo,
                 offer.url,
                 thumbnail(offer),
+                offer.category,
+                history,
+                other,
             ]));
         }
     }
@@ -578,7 +780,7 @@ fn write_data_files(out_dir: &Path, chains: &[ChainData]) -> Result<()> {
     Ok(())
 }
 
-fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
+fn write_static_assets(out_dir: &Path, chains: &[ChainView], push_url: &str) -> Result<()> {
     fs::write(out_dir.join("app.js"), include_str!("../web/app.js"))?;
     fs::write(out_dir.join("styles.css"), include_str!("../web/styles.css"))?;
     fs::write(out_dir.join("theme.js"), include_str!("../web/theme.js"))?;
@@ -588,7 +790,9 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     fs::write(fonts.join("inter-latin-wght.woff2"), include_bytes!("../web/fonts/inter-latin-wght.woff2"))?;
     fs::write(fonts.join("OFL.txt"), include_str!("../web/fonts/OFL.txt"))?;
     fs::write(out_dir.join("manifest.webmanifest"), include_str!("../web/manifest.webmanifest"))?;
-    fs::write(out_dir.join("_headers"), include_str!("../web/_headers"))?;
+    // The page and the service worker talk to the alerts Worker: its origin joins connect-src.
+    let push_origin = reqwest::Url::parse(push_url).ok().map(|u| format!(" {}", u.origin().ascii_serialization())).unwrap_or_default();
+    fs::write(out_dir.join("_headers"), include_str!("../web/_headers").replace("connect-src 'self'", &format!("connect-src 'self'{push_origin}")))?;
     let icons = out_dir.join("icons");
     fs::create_dir_all(&icons)?;
     fs::write(icons.join("icon-192.png"), include_bytes!("../web/icons/icon-192.png"))?;
@@ -610,7 +814,10 @@ fn write_static_assets(out_dir: &Path, chains: &[ChainView]) -> Result<()> {
     ];
     precache.extend(chains.iter().map(|c| format!("/{}/", c.id)));
     let version = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-    let sw = include_str!("../web/sw.js").replace("__VERSION__", &version).replace("__PRECACHE__", &serde_json::to_string(&precache)?);
+    let sw = include_str!("../web/sw.js")
+        .replace("__VERSION__", &version)
+        .replace("__PRECACHE__", &serde_json::to_string(&precache)?)
+        .replace("__PUSH_URL__", push_url.trim_end_matches('/'));
     fs::write(out_dir.join("sw.js"), sw)?;
     Ok(())
 }
@@ -647,6 +854,9 @@ fn write_seo_files(out_dir: &Path, site: &SiteConfig, chains: &[ChainView], site
          Los precios son los de la web de cada cadena para Rosario, Santa Fe, Argentina, y pueden diferir del precio en góndola.\n\n## Ofertas por cadena\n\n",
         site.name, site.description
     );
+    if sitemap.iter().any(|url| url.ends_with("/bancos/")) {
+        llms.push_str(&format!("- [Descuentos por banco en Rosario]({}/bancos/): qué descuento hay cada día con bancos, tarjetas y billeteras.\n", site.url));
+    }
     for c in chains {
         let count = if c.failed { "hoy sin datos (no se pudo leer la web de la cadena)".to_string() } else { format!("{} ofertas hoy", c.count_label) };
         llms.push_str(&format!("- [Ofertas de {} en Rosario]({}/{}/): {count}. {}.\n", c.name, site.url, c.id, c.store));
@@ -657,6 +867,9 @@ fn write_seo_files(out_dir: &Path, site: &SiteConfig, chains: &[ChainView], site
     ));
     for c in chains {
         llms.push_str(&format!("- [Ofertas de {} en JSON]({}/datos/{}.json): precios en centavos de peso argentino.\n", c.name, site.url, c.id));
+    }
+    if sitemap.iter().any(|url| url.ends_with("/bancos/")) {
+        llms.push_str(&format!("- [Descuentos por banco en JSON]({}/datos/bancos.json): promos con bancos, tarjetas y billeteras, por día.\n", site.url));
     }
     llms.push_str(&format!("- [Descripción de los campos]({}/datos/)\n", site.url));
     fs::write(out_dir.join("llms.txt"), llms)?;
@@ -687,7 +900,7 @@ mod tests {
     }
 
     #[test]
-    fn thumbnails_only_for_carrefour_and_coto() {
+    fn thumbnails_only_from_the_chains_image_hosts() {
         let offer = |chain: Chain, image: &str| Offer {
             chain,
             store: "x".into(),
@@ -701,6 +914,7 @@ mod tests {
             url: None,
             image: Some(image.into()),
             source: crate::model::Source::Web,
+            category: None,
         };
         assert_eq!(
             thumbnail(&offer(Chain::Carrefour, "https://carrefourar.vtexassets.com/arquivos/ids/171526/foto.jpg?v=1")).as_deref(),
@@ -708,7 +922,9 @@ mod tests {
         );
         let coto = "https://static.cotodigital3.com.ar/sitios/fotos/medium/00000100/00000157.jpg";
         assert_eq!(thumbnail(&offer(Chain::Coto, coto)).as_deref(), Some(coto));
-        assert_eq!(thumbnail(&offer(Chain::Dar, "https://www.darentucasa.com.ar/Fotos/Articulos/1.jpg")), None);
+        let dar = "https://www.darentucasa.com.ar/Fotos/Articulos/0000000000122.jpg";
+        assert_eq!(thumbnail(&offer(Chain::Dar, dar)).as_deref(), Some(dar));
+        assert_eq!(thumbnail(&offer(Chain::Dar, "https://www.darentucasa.com.ar/Login.asp")), None);
         // Hosts outside the CSP never reach the pages.
         assert_eq!(thumbnail(&offer(Chain::Coto, "https://otro.example/foto.jpg")), None);
     }
@@ -724,13 +940,6 @@ mod tests {
         assert_eq!(promo_chip(Some("70% 2da (Llevando 2)")).as_deref(), Some("70% 2da"));
     }
 
-    #[test]
-    fn suggested_phrases_count_like_the_search() {
-        assert!(matches_search("Alimento seco para perro Pedigree 3 kg", "alimento para perro"));
-        assert!(matches_search("Pañales Huggies Protect Plus", "pañales"));
-        assert!(matches_search("PAPEL HIGIENICO DOBLE HOJA", "papel higiénico"));
-        assert!(!matches_search("Collar para perro Vitalfun", "alimento para perro"));
-    }
 
     #[test]
     fn multi_buy_price_is_per_unit() {
@@ -756,6 +965,7 @@ mod tests {
             url: None,
             image: None,
             source: crate::model::Source::Web,
+            category: None,
         };
         let offers = ["Gelatina Anana", "Gelatina Cereza", "ACONDIC. SEDAL", "ACONDIC.PLUSBELLE", "Acondic. Dove", "Yerba"].map(offer);
         let names: Vec<&str> = highlights(&offers, 8).iter().map(|o| o.name.as_str()).collect();
@@ -778,6 +988,7 @@ mod tests {
             url: None,
             image: None,
             source: crate::model::Source::Web,
+            category: None,
         };
         assert_eq!(promo_kind(&offer(Some("2x1 (Llevando 2)"), Some(50))), "nxm");
         assert_eq!(promo_kind(&offer(Some("3 X 2"), None)), "nxm");
@@ -866,6 +1077,241 @@ mod tests {
             assert!(!text.contains("Fideos de ayer"));
         }
         assert_eq!(fs::read_to_string(out.join("datos/coto.json")).unwrap(), "[]");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn categories_become_shortcuts_and_a_filter() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-cat-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let offer = |chain: &str, id: &str, name: &str, category: Option<&str>| {
+            let category = category.map(|c| format!(r#","category":"{c}""#)).unwrap_or_default();
+            format!(
+                r#"{{"chain":"{chain}","store":"x","id":"{id}","ean":null,"name":"{name}","price":100,"list_price":200,"discount_pct":50,"promo":null,"url":null,"image":null,"source":"web"{category}}}"#
+            )
+        };
+        let carrefour = [offer("carrefour", "1", "Vacio x kg", Some("carnes")), offer("carrefour", "2", "Alimento gato carne", Some("mascotas"))];
+        fs::write(data.join("offers/carrefour.json"), format!("[{}]", carrefour.join(","))).unwrap();
+        fs::write(data.join("offers/coto.json"), format!("[{}]", offer("coto", "3", "Higado X KG", Some("carnes")))).unwrap();
+        fs::write(data.join("offers/dar.json"), format!("[{}]", offer("dar", "4", "YERBA", None))).unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let home = fs::read_to_string(out.join("index.html")).unwrap().replace("&#x2f;", "/");
+        // Only categories with offers today, with their count.
+        assert!(home.contains(r#"<a href="/?categoria=carnes#buscar" data-quick>Carnes y pescados <span class="quick-words-count">2<"#));
+        assert!(home.contains("/?categoria=mascotas#buscar"));
+        assert!(!home.contains("/?categoria=limpieza#buscar"));
+        assert!(home.contains(r#"<option value="carnes">Carnes y pescados</option>"#));
+        // DAR has no categories: no filter on its page; Coto's page has it.
+        assert!(!fs::read_to_string(out.join("dar/index.html")).unwrap().contains(r#"id="f-cat""#));
+        assert!(fs::read_to_string(out.join("coto/index.html")).unwrap().contains(r#"id="f-cat""#));
+        // The search index and the open data carry the category.
+        let search: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/buscar.json")).unwrap()).unwrap();
+        let category_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[9].clone()).unwrap();
+        assert_eq!(category_of("coto:3"), "carnes");
+        assert_eq!(category_of("dar:4"), serde_json::Value::Null);
+        let csv = fs::read_to_string(out.join("datos/hoy.csv")).unwrap();
+        assert!(csv.lines().next().unwrap().ends_with(",url,categoria"));
+        assert!(csv.lines().any(|line| line.starts_with("coto,") && line.ends_with(",carnes")));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn alerts_appear_only_when_configured() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-push-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        fs::write(data.join("offers/coto.json"), "[]").unwrap();
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let mut site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+
+        site.push_url = String::new();
+        site.vapid_public_key = String::new();
+        build(&data, &out, &site, &stores).unwrap();
+        assert!(!fs::read_to_string(out.join("index.html")).unwrap().contains(r#"id="avisos""#));
+        assert!(fs::read_to_string(out.join("_headers")).unwrap().contains("connect-src 'self';"));
+        assert!(!fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("Avisos de ofertas"));
+
+        site.push_url = "https://avisos.example.workers.dev/".into();
+        site.vapid_public_key = "BPUBLICA".into();
+        build(&data, &out, &site, &stores).unwrap();
+        let home = fs::read_to_string(out.join("index.html")).unwrap().replace("&#x2f;", "/");
+        assert!(home.contains(r#"data-push-url="https://avisos.example.workers.dev/" data-vapid-key="BPUBLICA""#));
+        assert!(fs::read_to_string(out.join("_headers")).unwrap().contains("connect-src 'self' https://avisos.example.workers.dev;"));
+        assert!(fs::read_to_string(out.join("sw.js")).unwrap().contains("const PUSH_URL = 'https://avisos.example.workers.dev';"));
+        assert!(fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("Avisos de ofertas"));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn data_without_categories_shows_no_category_ui() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-nocat-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        // Written before categories existed: no "category" key at all.
+        let old = r#"[{"chain":"coto","store":"x","id":"1","ean":null,"name":"Fideos","price":100,"list_price":200,"discount_pct":50,"promo":null,"url":null,"image":null,"source":"web"}]"#;
+        fs::write(data.join("offers/coto.json"), old).unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let home = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(!home.contains("Por categoría"));
+        assert!(!home.contains(r#"id="f-cat""#));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn bank_promos_page_groups_by_day_and_hides_expired() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-promos-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        fs::create_dir_all(data.join("promos")).unwrap();
+        fs::write(data.join("offers/coto.json"), "[]").unwrap();
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+
+        // No promos files: no page, no tab.
+        build(&data, &out, &site, &stores).unwrap();
+        assert!(!out.join("bancos/index.html").exists());
+        assert!(!fs::read_to_string(out.join("index.html")).unwrap().contains(r#"href="/bancos/""#));
+        // Without the page, the terms keep saying bank discounts are not included.
+        assert!(fs::read_to_string(out.join("terminos/index.html")).unwrap().contains("No incluimos descuentos por banco"));
+
+        let promo = |id: &str, pct: u8, title: &str, days: &str, until: &str| {
+            format!(
+                r#"{{"chain":"coto","id":"{id}","discount_pct":{pct},"title":"{title}","payment":"Naranja X","conditions":"Tope $12.000","days":{days},"online":true,"in_store":true,"formats":[],"valid_until":{until},"legal":null,"url":"https://www.coto.com.ar/descuentos"}}"#
+            )
+        };
+        let promos = [
+            promo("1", 30, "Martes y jueves", "[2,4]", "null"),
+            promo("2", 10, "Sin dia", "[]", "null"),
+            promo("3", 50, "Ya vencida", "[2]", r#""2020-01-01""#),
+        ];
+        fs::write(data.join("promos/coto.json"), format!("[{}]", promos.join(","))).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let page = fs::read_to_string(out.join("bancos/index.html")).unwrap();
+        assert_eq!(page.matches("<h3 class=\"card-name promo-title\">Martes y jueves</h3>").count(), 2, "one card per day");
+        assert!(page.contains(r#"<section id="martes""#) && page.contains(r#"<section id="jueves""#));
+        assert!(!page.contains(r#"<section id="lunes""#), "days with no promos are left out");
+        assert!(page.contains(r#"<section id="sin-dia""#));
+        assert!(page.contains("Online y en sucursal"));
+        assert!(!page.contains("Ya vencida"));
+        assert!(fs::read_to_string(out.join("index.html")).unwrap().contains(r#"href="/bancos/""#));
+        let open: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/bancos.json")).unwrap()).unwrap();
+        assert_eq!(open.len(), 2);
+        assert!(fs::read_to_string(out.join("sitemap.xml")).unwrap().contains("/bancos/</loc>"));
+        // Legal coverage: terms, privacy and FAQ talk about the bank promos.
+        let terms = fs::read_to_string(out.join("terminos/index.html")).unwrap();
+        assert!(terms.contains(r#"<p id="bancos">"#) && !terms.contains("No incluimos descuentos por banco"));
+        assert!(fs::read_to_string(out.join("privacidad/index.html")).unwrap().contains("<h2>Descuentos por banco</h2>"));
+        assert!(fs::read_to_string(out.join("preguntas-frecuentes/index.html")).unwrap().contains("¿De dónde salen los descuentos por banco?"));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn price_history_comes_from_the_daily_commits() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-history-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let git = |args: &[&str], date: &str| {
+            let status = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(["-c", "user.name=bot", "-c", "user.email=bot@example.com", "-c", "commit.gpgsign=false"])
+                .args(args)
+                .env("GIT_AUTHOR_DATE", date)
+                .env("GIT_COMMITTER_DATE", date)
+                .status();
+            status.is_ok_and(|s| s.success())
+        };
+        if !git(&["init", "-q"], "2026-11-01T12:00:00+00:00") {
+            fs::remove_dir_all(&root).unwrap();
+            return; // no git on this machine
+        }
+        let offers = |yerba: (u64, u64), fideos: u64| {
+            format!(
+                r#"[{{"chain":"carrefour","store":"x","id":"1","ean":null,"name":"Yerba","price":{},"list_price":{},"discount_pct":10,"promo":null,"url":null,"image":null,"source":"web"}},
+{{"chain":"carrefour","store":"x","id":"2","ean":null,"name":"Fideos","price":{fideos},"list_price":2000,"discount_pct":10,"promo":null,"url":null,"image":null,"source":"web"}}]"#,
+                yerba.0, yerba.1
+            )
+        };
+        // Three earlier days (the bot commits at UTC times) with the usual prices.
+        for day in ["2026-11-10", "2026-11-11", "2026-11-12"] {
+            fs::write(data.join("offers/carrefour.json"), offers((900, 1000), 1800)).unwrap();
+            assert!(git(&["add", "-A"], &format!("{day}T14:00:00+00:00")));
+            assert!(git(&["commit", "-q", "--allow-empty", "-m", "data"], &format!("{day}T14:00:00+00:00")));
+        }
+        // Today: same yerba price with a raised "before" price, fideos at their lowest.
+        fs::write(data.join("offers/carrefour.json"), offers((900, 1500), 1500)).unwrap();
+        fs::write(data.join("run.json"), r#"{"generated_at":"2026-11-13T12:05:00-03:00","chains":{"carrefour":{"ok":true,"offers":2,"seconds":1,"error":null}}}"#).unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let page = fs::read_to_string(out.join("carrefour/index.html")).unwrap();
+        assert!(page.contains(r#"<p class="history-note history-warn">El precio anterior subió hace poco</p>"#), "{page}");
+        assert!(page.contains(r#"<p class="history-note history-good">El más bajo en 30 días</p>"#));
+        let search: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/buscar.json")).unwrap()).unwrap();
+        let history_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[10].clone()).unwrap();
+        assert_eq!(history_of("carrefour:1"), json!(["warn", "El precio anterior subió hace poco"]));
+        assert_eq!(history_of("carrefour:2"), json!(["good", "El más bajo en 30 días"]));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn comparable_barcodes() {
+        assert_eq!(comparable_ean(Some("7790154000669")), Some("7790154000669"));
+        assert_eq!(comparable_ean(Some("07790154000669")), Some("7790154000669"), "GTIN-14 with a leading zero");
+        assert_eq!(comparable_ean(Some("2000000012345")), None, "store's own code (weighed produce)");
+        assert_eq!(comparable_ean(Some("0000000029345")), None, "internal code padded with zeros");
+        assert_eq!(comparable_ean(Some("12345")), None);
+        assert_eq!(comparable_ean(Some("77901540A0669")), None);
+        assert_eq!(comparable_ean(None), None);
+    }
+
+    #[test]
+    fn same_product_in_another_chain() {
+        let root = std::env::temp_dir().join(format!("ofertas-rosario-same-test-{}", std::process::id()));
+        let (data, out) = (root.join("data"), root.join("dist"));
+        fs::create_dir_all(data.join("offers")).unwrap();
+        let offer = |chain: &str, id: &str, ean: &str, price: u64, promo: &str| {
+            format!(
+                r#"{{"chain":"{chain}","store":"x","id":"{id}","ean":{ean},"name":"Sidra {chain} {id}","price":{price},"list_price":{},"discount_pct":10,"promo":{promo},"url":"https://www.{chain}.com.ar/{id}","image":null,"source":"web"}}"#,
+                price * 2
+            )
+        };
+        let carrefour = [offer("carrefour", "1", r#""7790154000669""#, 390_000, "null"), offer("carrefour", "2", r#""7790000000001""#, 100_000, "null")];
+        let coto = [
+            offer("coto", "a", r#""7790154000669""#, 412_500, r#""2da al 70% (Llevando 2)""#),
+            offer("coto", "b", r#""7790154000669""#, 450_000, "null"),
+            offer("coto", "c", r#""2000000012345""#, 100_000, "null"),
+        ];
+        fs::write(data.join("offers/carrefour.json"), format!("[{}]", carrefour.join(","))).unwrap();
+        fs::write(data.join("offers/coto.json"), format!("[{}]", coto.join(","))).unwrap();
+        fs::write(data.join("offers/dar.json"), "[]").unwrap();
+
+        let stores = Config::load(Path::new("config/stores.toml")).unwrap();
+        let site = SiteConfig::load(Path::new("config/site.toml")).unwrap();
+        build(&data, &out, &site, &stores).unwrap();
+
+        let carrefour_page = fs::read_to_string(out.join("carrefour/index.html")).unwrap().replace("&#x2f;", "/");
+        // Coto's cheapest offer of the same barcode, per unit taking 2; dearer than here.
+        assert!(carrefour_page.contains(r#"<p class="card-other">En Coto: <a href="https://www.coto.com.ar/a" rel="nofollow noopener" target="_blank">$4.125</a> c/u llevando 2</p>"#), "{carrefour_page}");
+        let coto_page = fs::read_to_string(out.join("coto/index.html")).unwrap().replace("&#x2f;", "/");
+        assert!(coto_page.contains(r#"$3.900</a> <strong>(más barato)</strong></p>"#));
+        assert_eq!(coto_page.matches(r#"class="card-other""#).count(), 2, "the store-only code does not match");
+        let search: Vec<serde_json::Value> = serde_json::from_str(&fs::read_to_string(out.join("datos/buscar.json")).unwrap()).unwrap();
+        let other_of = |key: &str| search.iter().find(|row| row[0] == key).map(|row| row[11].clone()).unwrap();
+        assert_eq!(other_of("carrefour:1"), json!(["Coto", 412_500, "https://www.coto.com.ar/a", 2]));
+        assert_eq!(other_of("carrefour:2"), serde_json::Value::Null);
         fs::remove_dir_all(&root).unwrap();
     }
 }

@@ -62,6 +62,38 @@ pub struct Offer {
     pub url: Option<String>,
     pub image: Option<String>,
     pub source: Source,
+    /// Site category id (see `categories` in `config/stores.toml`). None for DAR, for products
+    /// no category matched and for data written before categories existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+}
+
+/// One bank or payment-method promo of a chain ("30% los martes con Naranja X"), normalized.
+/// Only percentage discounts: interest-free installments are left out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BankPromo {
+    pub chain: Chain,
+    /// The chain's own promo id.
+    pub id: String,
+    pub discount_pct: u8,
+    /// Main text, as the chain writes it.
+    pub title: String,
+    /// Bank, card or wallet, when the chain says it.
+    pub payment: Option<String>,
+    /// Cap, minimum purchase and other conditions, as the chain writes them.
+    pub conditions: Option<String>,
+    /// Days of the week it applies, 1 = Monday ... 7 = Sunday. Empty: the chain gives no day.
+    pub days: Vec<u8>,
+    pub online: bool,
+    pub in_store: bool,
+    /// Store formats it applies in (Carrefour: "Hiper", "Market"...). Empty when not given.
+    pub formats: Vec<String>,
+    /// Last day it is valid (yyyy-mm-dd, Argentina), when the chain publishes it.
+    pub valid_until: Option<String>,
+    /// Full legal text, when the chain publishes it.
+    pub legal: Option<String>,
+    /// The chain's page that lists the promos and their legal terms.
+    pub url: String,
 }
 
 /// Converts a peso amount to cents, rejecting non-positive or non-finite values.

@@ -6,7 +6,7 @@ use anyhow::Result;
 use base64::Engine;
 use serde::Deserialize;
 
-use crate::config::CarrefourConfig;
+use crate::config::{CarrefourConfig, Category, carrefour_category};
 use crate::http::Http;
 use crate::model::{Chain, Offer, Source, pesos_to_cents};
 
@@ -69,12 +69,13 @@ pub fn region_id(seller: &str) -> String {
     base64::engine::general_purpose::STANDARD.encode(format!("SW#{seller}"))
 }
 
-pub async fn scrape(config: &CarrefourConfig, http: &Http) -> Result<Vec<Offer>> {
+pub async fn scrape(config: &CarrefourConfig, categories: &[Category], http: &Http) -> Result<Vec<Offer>> {
     let region = region_id(&config.seller);
     // Keyed by product id: a product can show up in more than one category.
     let mut offers: BTreeMap<String, Offer> = BTreeMap::new();
 
     for category in &config.categories {
+        let site_category = carrefour_category(categories, category);
         let url = format!("{BASE}/api/io/_v/api/intelligent-search/product_search/category-1/{category}");
         let mut page = 1;
         loop {
@@ -92,7 +93,7 @@ pub async fn scrape(config: &CarrefourConfig, http: &Http) -> Result<Vec<Offer>>
             if response.products.is_empty() {
                 break;
             }
-            let (page_offers, best_discount) = parse_products(response, &config.store);
+            let (page_offers, best_discount) = parse_products(response, &config.store, site_category.as_deref());
             let found = page_offers.len();
             for offer in page_offers {
                 offers.entry(offer.id.clone()).or_insert(offer);
@@ -109,7 +110,7 @@ pub async fn scrape(config: &CarrefourConfig, http: &Http) -> Result<Vec<Offer>>
 }
 
 /// Returns the offers on one page and the best discount seen on it.
-fn parse_products(response: SearchResponse, store: &str) -> (Vec<Offer>, u8) {
+fn parse_products(response: SearchResponse, store: &str, category: Option<&str>) -> (Vec<Offer>, u8) {
     let mut offers = Vec::new();
     let mut best_discount = 0u8;
     for product in response.products {
@@ -137,6 +138,7 @@ fn parse_products(response: SearchResponse, store: &str) -> (Vec<Offer>, u8) {
             url: (!product.link_text.is_empty()).then(|| format!("{BASE}/{}/p", product.link_text)),
             image: item.images.first().map(|i| i.image_url.clone()),
             source: Source::Web,
+            category: category.map(str::to_string),
         });
     }
     (offers, best_discount)
@@ -155,12 +157,13 @@ mod tests {
     fn parses_fixture() {
         let body = include_str!("../../tests/fixtures/carrefour_search.json");
         let response: SearchResponse = serde_json::from_str(body).unwrap();
-        let (offers, best) = parse_products(response, "test");
+        let (offers, best) = parse_products(response, "test", Some("almacen"));
         assert!(!offers.is_empty(), "fixture should contain discounted products");
         assert!(best > 0);
         for offer in &offers {
             assert!(offer.list_price.unwrap() > offer.price);
             assert!(offer.url.as_deref().unwrap().starts_with("https://www.carrefour.com.ar/"));
+            assert_eq!(offer.category.as_deref(), Some("almacen"));
         }
     }
 }

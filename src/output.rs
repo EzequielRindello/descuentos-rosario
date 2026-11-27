@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, FixedOffset, SecondsFormat};
 use serde::{Deserialize, Serialize};
 
-use crate::model::{Chain, Offer};
+use crate::model::{BankPromo, Chain, Offer};
 
 /// Summary of one run, written to `data/run.json`.
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -39,6 +39,13 @@ pub fn previous_count(data_dir: &Path, chain: Chain) -> Option<usize> {
     serde_json::from_str::<Vec<serde_json::Value>>(&text).ok().map(|offers| offers.len())
 }
 
+/// Number of bank promos in the chain's current promos file, if there is one.
+pub fn previous_promo_count(data_dir: &Path, chain: Chain) -> Option<usize> {
+    let path = data_dir.join("promos").join(format!("{}.json", chain.id()));
+    let text = fs::read_to_string(path).ok()?;
+    serde_json::from_str::<Vec<serde_json::Value>>(&text).ok().map(|promos| promos.len())
+}
+
 /// Writes `data/offers/<chain>.json`, sorted by product id.
 pub fn write_offers(data_dir: &Path, chain: Chain, offers: &mut [Offer]) -> Result<()> {
     offers.sort_by(|a, b| a.id.cmp(&b.id));
@@ -50,6 +57,17 @@ pub fn write_offers(data_dir: &Path, chain: Chain, offers: &mut [Offer]) -> Resu
         body.push_str(if i + 1 < offers.len() { ",\n" } else { "\n" });
     }
     body.push_str("]\n");
+    let path = dir.join(format!("{}.json", chain.id()));
+    fs::write(&path, body).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Writes `data/promos/<chain>.json` (bank promos), sorted by id, one per line.
+pub fn write_promos(data_dir: &Path, chain: Chain, promos: &mut [BankPromo]) -> Result<()> {
+    promos.sort_by(|a, b| a.id.cmp(&b.id));
+    let dir = data_dir.join("promos");
+    fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
+    let lines = promos.iter().map(serde_json::to_string).collect::<Result<Vec<_>, _>>()?;
+    let body = if lines.is_empty() { "[]\n".to_string() } else { format!("[\n{}\n]\n", lines.join(",\n")) };
     let path = dir.join(format!("{}.json", chain.id()));
     fs::write(&path, body).with_context(|| format!("writing {}", path.display()))
 }

@@ -1,10 +1,12 @@
-# Se corre a mano desde Actions, después de los tres scrapes: genera el sitio con los datos de main
-# y lo publica en Cloudflare. Una cadena cuyo último scrape falló sale sin ofertas.
+# Se corre a mano desde Actions, después de los tres scrapes, y al final de daily.yml: genera el
+# sitio con los datos de main y lo publica en Cloudflare. Una cadena cuyo último scrape falló sale
+# sin ofertas.
 # Secrets necesarios: CLOUDFLARE_API_TOKEN (permiso "Workers Scripts: Edit") y CLOUDFLARE_ACCOUNT_ID.
 name: Publicar
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -19,7 +21,14 @@ jobs:
     timeout-minutes: 15
     steps:
       # Actions pinned by commit SHA (a moved tag can't change what runs here); Dependabot bumps them.
+      # Latest main, not the commit the run started on: inside daily.yml the scrapes pushed
+      # today's data after that commit.
+      # Full history: the build compares today's prices with the daily data commits of the last
+      # 30 days (src/history.rs). The repo is small, so it costs seconds.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 

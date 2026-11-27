@@ -17,13 +17,22 @@
 {% endif %}{% if quick.nxm %}<li><a class="quick-card quick-sun" href="/?promo=nxm#buscar" data-quick><span class="quick-big">2x1</span> <span class="quick-label">y 3x2</span> <span class="quick-count">{{ quick.nxm }} ofertas {{ icon.arrow_right() }}</span></a></li>
 {% endif %}{% if quick.second %}<li><a class="quick-card quick-soft" href="/?promo=2da#buscar" data-quick><span class="quick-big">2da</span> <span class="quick-label">unidad con descuento</span> <span class="quick-count">{{ quick.second }} ofertas {{ icon.arrow_right() }}</span></a></li>
 {% endif %}</ul>
-{% endif %}{% if quick.words %}<p class="quick-words"><span>Probá con:</span> {% for w in quick.words %}<a href="/?q={{ w.query }}#buscar" data-quick>{{ w.word }} <span class="quick-words-count">{{ w.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
+{% endif %}{% if quick.categories %}<p class="quick-words"><span>Por categoría:</span> {% for c in quick.categories %}<a href="/?categoria={{ c.id }}#buscar" data-quick>{{ c.name }} <span class="quick-words-count">{{ c.count }}<span class="visually-hidden"> ofertas</span></span></a> {% endfor %}</p>
 {% endif %}</div></div>
 </section>
 
 <section id="guardados" hidden>
 <h2>Tus guardados</h2>
-<p class="lead">Se guardan solo en este dispositivo.</p>
+<p class="lead">Se guardan en este dispositivo.{% if site.push_url and site.vapid_public_key %} Si activás los avisos, también nos llegan los códigos de esos productos (ver <a href="/privacidad/">Privacidad</a>).{% endif %}</p>
+{% if site.push_url and site.vapid_public_key %}<div id="avisos" data-push-url="{{ site.push_url }}" data-vapid-key="{{ site.vapid_public_key }}" hidden>
+<p><button type="button" id="avisos-boton" class="btn">Avisarme cuando vuelvan a estar en oferta</button></p>
+<p id="avisos-estado" class="field-hint" aria-live="polite"></p>
+</div>
+{% endif %}<p id="volvieron" class="note" hidden></p>
+<div class="view-switch" role="group" aria-label="Ver los guardados como">
+<button type="button" data-view="cards" aria-pressed="true">Tarjetas</button>
+<button type="button" data-view="list" aria-pressed="false">Lista de compras</button>
+</div>
 <div id="guardados-lista"></div>
 </section>
 

@@ -1,0 +1,9 @@
+{
+  "name": "ofertas-rosario-cron",
+  "private": true,
+  "type": "module",
+  "description": "Worker de la corrida diaria y los avisos. Sin dependencias: tests con node --test.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

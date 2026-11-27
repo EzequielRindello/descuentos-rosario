@@ -4,7 +4,7 @@ Leé esto primero si llegás sin contexto (persona o agente). Dice qué queremos
 
 **Regla:** este archivo se actualiza en cada cambio que importe. Cada tarea terminada cita el commit que la cerró (hash corto). Los commits se hacen a mano; el hash se carga después. Si algo de acá no coincide con el código o con `git log`, manda el código: corregí este archivo.
 
-Última actualización: 13/11/2026.
+Última actualización: 22/11/2026.
 
 ## Qué es
 
@@ -34,11 +34,30 @@ Primera corrida por cron (11/11/2026, run `43069628912`, evento `schedule`, con 
 
 Issue #2 (13/11/2026, run `43472763377`): DAR no respondió desde el runner (`tcp connect error: Connection timed out` en los 3 intentos, en 2 minutos). 40 minutos antes había andado desde GitHub y desde local respondía bien: fue un corte del sitio, no del scraper. Con los scrapes separados, una cadena que falla se vuelve a correr sola antes de publicar.
 
-**Lanzado el 13/11/2026 (`v0.1.0`):** repo público y sitio en producción. **Próximo paso:** las features de "Próximas releases", cuando el mantenedor las pida.
+**Lanzado el 13/11/2026 (`v0.1.0`):** repo público y sitio en producción.
+
+**En curso: `v0.1.1` en la rama `release/v0.1.1`** (sin mergear a `main`, nada publicado). Hecho: corrida automática a las 12 (`daily.yml` + Worker `cron/`), categorías propias, avisos de "volvió a estar en oferta" (código listo, sin poner en marcha). **Próximos pasos:**
+1. ~~Poner en marcha los avisos~~ (27/11/2026): KV creado, claves VAPID y `push_url` cargadas, secret `VAPID_PRIVATE_KEY` y Worker `cron/` publicado. El botón de avisos aparece cuando se publique el sitio con esta config.
+2. Probar el push real en el celu (en la PC, Chrome no pudo registrarse en el servicio de push). Revisar a 390 px las categorías y el botón de avisos.
+3. Proponer otras features plausibles para la release (solo propuesta).
+4. PR `release/v0.1.1` → `main`, merge, tag `v0.1.1`, GitHub Release y deploy manual. Después: verificar `daily.yml` a mano y el disparo de las 12.
 
 ## Cómo hacer la corrida del día
 
-Todo se corre a mano desde la pestaña Actions de GitHub (botón "Run workflow"), sin cron:
+Automática (desde v0.1.1): todos los días a las 12:00 (hora argentina) el Worker `ofertas-rosario-cron` (`cron/`) dispara **Corrida del día** (`daily.yml`): los tres scrapes a la vez y después Publicar, aunque una cadena falle (esa sale sin ofertas y abre su issue). Se puede correr a mano igual. Si el disparo falla (por ejemplo, token vencido), queda el error en los logs del Worker en Cloudflare y ese día se corre a mano. El token (`GITHUB_TOKEN`, secret del Worker) vence alrededor del 19/02/2027: renovarlo antes.
+
+Publicar el Worker (una vez, o cuando cambie `cron/`): `npx wrangler@4.155.0 deploy --config cron/wrangler.jsonc`, y cargar el secret con `npx wrangler@4.155.0 secret put GITHUB_TOKEN --config cron/wrangler.jsonc`.
+
+Avisos de "volvió a estar en oferta" (desde v0.1.1, mismo Worker, 12:30 hora argentina). Puesta en marcha, una sola vez:
+1. `node cron/scripts/vapid-keys.mjs`: imprime la clave pública y la privada. La privada no va al repo.
+2. `npx wrangler@4.155.0 kv namespace create SUBSCRIPTIONS --config cron/wrangler.jsonc` y pegar el id en `cron/wrangler.jsonc`.
+3. Pública en `VAPID_PUBLIC_KEY` de `cron/wrangler.jsonc` y en `vapid_public_key` de `config/site.toml`; `push_url` en `config/site.toml` con la URL del Worker (`https://ofertas-rosario-cron.rindelloezequiel.workers.dev`).
+4. `npx wrangler@4.155.0 secret put VAPID_PRIVATE_KEY --config cron/wrangler.jsonc` (pegar el JSON de la privada) y publicar el Worker.
+5. Publicar el sitio. Sin `push_url` y `vapid_public_key` el botón de avisos y los textos de Privacidad sobre avisos no aparecen.
+
+Tests del Worker (sin dependencias): `node --test cron/`.
+
+A mano, desde la pestaña Actions de GitHub (botón "Run workflow"):
 
 1. **Scrape Carrefour**, **Scrape Coto** y **Scrape DAR** (`scrape-<cadena>.yml`). Se pueden correr a la vez. Cada uno corre los tests, scrapea su cadena, commitea `data/offers/<cadena>.json` y su línea de `data/run.json` en `main` ("data: ofertas de <cadena> del DD/MM/AAAA") y abre un issue si falló. No publican nada. La lógica común está en `scrape.yml`.
 2. Si alguno falló, se puede volver a correr solo ese.
@@ -74,7 +93,7 @@ Un agente no dispara estos workflows sin OK del mantenedor.
 | Control de caídas | ✅ Si una cadena trae 0 ofertas (y ayer tenía), se toma como error y se conserva el archivo anterior. Las bajas grandes solo quedan en el log | `check_volume` en `src/main.rs` |
 | Sitio estático (HTML, SEO) | ✅ Portada, una sección paginada por cadena, datos abiertos, 404, JSON-LD, sitemap, robots, llms.txt | `src/site.rs`, `templates/`, `config/site.toml` |
 | PWA (manifest, service worker, aviso de instalación) | ✅ Chrome la ofrece para instalar; offline con precache | `web/manifest.webmanifest`, `web/sw.js`, `web/app.js` |
-| Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados en `localStorage` | `web/app.js` |
+| Búsqueda y guardados | ✅ Búsqueda sin tildes sobre `datos/buscar.json`; guardados y lista de compras en `localStorage` | `web/app.js` |
 | Íconos | ✅ Flecha de cursor blanca sobre celeste `#0369A1`, más `favicon.svg` | `web/icons/` |
 | Estilos | ✅ Paleta "Celeste Rosario", Inter, celu primero, grilla en escritorio, modo oscuro según el dispositivo | `web/styles.css`, `web/fonts/` |
 | Páginas legales | ✅ Preguntas frecuentes, términos y privacidad. Falta el canal de contacto y la revisión legal | `templates/preguntas.html`, `terminos.html`, `privacidad.html` |
@@ -195,6 +214,16 @@ Si el repo está en un disco de Windows y compilás desde WSL, apuntá `CARGO_TA
 | 13/11/2026 | `main` sin ruleset ni rama `development`; el bot sigue pusheando `data/` directo | En un repo público solo pushea quien tiene permiso de escritura, y es solo el mantenedor: los demás tienen que hacer un fork y abrir un PR que él mergea. Los workflows son solo `workflow_dispatch`, así que un PR de un fork no corre nada ni toca los secrets. Reemplaza la decisión del 12/11 de la deploy key. |
 | 13/11/2026 | Se lanza sin revisión de un abogado; los términos y la privacidad los endureció un agente, priorizando cubrir al proyecto | Pedido del mantenedor: no hay presupuesto para un abogado y se lanza el mismo día. Riesgo aceptado: no es asesoramiento legal, y los términos de uso de las cadenas no se pudieron leer. |
 | 13/11/2026 | Sin cron: `daily.yml` se reemplaza por tres workflows de scrape, uno por cadena, y uno de deploy, todos a mano. Los scrapes commitean su archivo y su línea de `run.json` (con reintento del push, porque pueden correr a la vez) y el deploy publica lo que hay en `main` | El cron `0 10 * * *` salió 7 horas y media tarde los tres días (11, 12 y 13/11). Si no corre a horario, no sirve automatizado. Separado, una cadena caída (issue #2, DAR) se vuelve a correr sola y se publica recién cuando las tres están bien. Reemplaza la decisión del 10/11 de correr todo junto y a diario. |
+| 21/11/2026 | Cada release se trabaja en su rama (`release/v0.1.1`) y entra a `main` con un PR; al mergear, tag y GitHub Release. Sin rama `development`. El bot sigue commiteando `data/` en `main`, y la rama de release trae `main` cada tanto | El deploy publica lo que hay en `main`: con código a medias en `main`, cualquier deploy (y uno automático, si vuelve) lo publicaría. Con un solo mantenedor y una release a la vez, una `development` permanente da el mismo trabajo sin sumar nada. El PR deja el diff de la release para revisar. Completa la decisión del 13/11 (`main` sigue sin ruleset). |
+| 21/11/2026 | Categorías propias (12, en `config/stores.toml`) en vez de las palabras sueltas de "Probá con:". Cada oferta guarda `category`, asignada al scrapear desde la categoría de la cadena; los recuadros de la portada y el filtro "Categoría" filtran por ese campo, no por texto. DAR queda sin categoría. Criterio común: carne, pollo y pescado sin elaborar en "Carnes y pescados"; hamburguesas, milanesas y rebozados en "Congelados"; galletitas en "Desayuno y merienda" (como Carrefour) | "carne" por texto daba 54 resultados, casi todos caldos, sopas, empanadas y alimento para mascotas, y no traía la carne fresca ("Higado X KG" no dice "carne"). La categoría ya venía en las respuestas de Carrefour y Coto, sin requests extra. DAR no la publica en su listado. Excepción conocida: Coto pone el pescado rebozado congelado en "Pescaderia", así que cae en Carnes y pescados. |
+| 21/11/2026 | Avisos "volvió a estar en oferta" con Web Push, solo para productos guardados. El Worker de `cron/` guarda en KV, por dispositivo, el endpoint de push (con un hash como clave) y los códigos de los guardados con su estado; a las 12:30 compara con `buscar.json` del sitio publicado y manda un push sin contenido solo a quien le volvió algo; el service worker le pregunta al Worker qué volvió y arma el texto. También, dentro de la app, "Volvió a estar en oferta: ..." arriba de los guardados. Retoma la decisión del 10/11 | El navegador obliga a mostrar una notificación por cada push, así que el servidor tiene que saber a quién le volvió algo: guarda solo el endpoint y códigos de producto, nada personal (Privacidad, Términos y Preguntas lo dicen cuando los avisos están configurados). Push sin contenido: no hace falta cifrar el mensaje. Una cadena que falló no cuenta como "se fue" (si no, al otro día avisaría de más). Límites del plan gratis: 45 avisos por corrida (los que sobran salen al día siguiente) y 1.000 escrituras de KV por día. En iPhone solo con la app instalada (iOS 16.4+). |
+| 21/11/2026 | Vuelve la corrida automática: `daily.yml` (tres scrapes en paralelo y publicar aunque una cadena falle) disparado a las 12:00 hora argentina por un Cron Trigger de un Worker aparte (`ofertas-rosario-cron`), no por el cron de GitHub. Token fine-grained a 90 días, solo este repo y "Actions: Read and write". Los workflows a mano quedan | El cron de Cloudflare sale al minuto; el de GitHub salía 7 horas y media tarde. Worker aparte para que el del sitio siga siendo solo estático (gratis sin límite). Cada día es independiente: si falla, se corre a mano. Argentina es UTC-3 todo el año, así que `0 15 * * *` UTC = 12:00. Reemplaza en parte la decisión del 13/11 (sin cron). |
+| 21/11/2026 | Descuentos por banco en `/bancos/`, agrupados por día, de Carrefour y Coto. Se leen en el scrape de cada cadena y se guardan en `data/promos/<cadena>.json`; fallar no marca la cadena como caída. Solo descuentos en %; afuera cuotas, las de otras provincias (Carrefour, por el texto del legal) y las de CABA (Coto). La misma promo de Coto online y en sucursal se muestra una vez. DAR no entra (solo imágenes) | Las dos cadenas lo publican en endpoints públicos sin key (ver `docs/context.md`). Sin campo de región, el filtro por texto es lo único posible; se probó con las 117 promos del 21/11. Los nombres de bancos van en `config/stores.toml` porque Coto solo identifica el banco por el archivo del logo. Términos (punto 3, ancla `#bancos`), Privacidad y Preguntas suman textos sobre bancos solo cuando hay promos: sin relación con bancos, resumen con filtro que puede fallar, manda el legal de la cadena. |
+| 21/11/2026 | Historial de precios desde git: el build compara cada oferta con lo que decían los commits diarios de `data/offers/` en los últimos 30 días y muestra "El más bajo en 30 días", "El precio anterior subió hace poco" o, en DAR, cuánto más barato está que su precio habitual. `deploy.yml` con `fetch-depth: 0` | El historial ya estaba en git ("git scraping" del brief): sin archivo nuevo en `data/`, sin backfill y con días desde el 10/11. El repo pesa ~6 MB. Reglas probadas con los datos del 21/11: se descartaron el tachado que sube junto con el precio (inflación) y las caídas de más de 60% (cambios de envase). Solo hay precio de los días en oferta: Términos y Preguntas lo aclaran. |
+| 21/11/2026 | Fotos de DAR desde su servidor, como las de Carrefour y Coto (con carga diferida y sin referer). Una foto que da error se saca de la tarjeta. Reemplaza la parte de DAR de la decisión del 11/11 | Pedido del mantenedor. Las fotos de DAR son de 280 px y pesan 3 a 12 KB, DAR no tiene `robots.txt` y Chrome las carga pese al TLS viejo del sitio (probado el 21/11). Con carga diferida solo se piden las que están en pantalla. |
+| 22/11/2026 | Mismo producto en otra cadena por código de barras: "En Coto: $X" (o Carrefour) en la tarjeta, con link y "(más barato)". Solo cuando está en oferta en las dos | Carrefour y Coto publican EAN en todas sus ofertas (554 en común el 21/11; cada una más barata en la mitad). No tenemos precios sin oferta, así que no hay comparación cuando está en oferta en una sola. Se descartan los códigos propios de cada súper (empiezan con 2). DAR no publica EAN. |
+| 22/11/2026 | Lista de compras dentro de "Tus guardados": selector "Tarjetas / Lista de compras", un panel por cadena con casillas, precio, promo y "Te falta $X (1 de cada uno)"; compartir como texto (menú de compartir en el celu, portapapeles en la PC) y "Destildar todo". Orden por categoría y después por nombre. Los guardados fuera de oferta quedan afuera, salvo que se tilde "Sumarlos sin precio". Un tilde se borra si el producto entra o sale de oferta. Todo en `localStorage` | Pedido del mantenedor (5.4). Se usa en el súper con una mano: las filas no se mueven al tildar, toda la fila es el tilde y el total es de lo que falta. Sin página nueva, porque las pestañas ya no entran a 390 px. Sin cantidades ni varias listas. Privacidad lo menciona. |
+| 22/11/2026 | "Datos abiertos" sale de las pestañas y pasa al pie (junto a Preguntas, Términos y Privacidad); las pestañas quedan Inicio, cadenas y Bancos | Elegido por el mantenedor (5.5) entre esto y acortarla a "Datos". Con "Bancos", a 390 px no entraban las seis y "Datos abiertos" quedaba cortada. La usan desarrolladores y periodistas, no quien compra, y el pie ya tenía un link. |
 
 ## Próximos pasos
 
@@ -255,8 +284,8 @@ El repo es **privado** hasta terminar el MVP. Al lanzarlo:
 
 Features pedidas por el mantenedor para después de `v0.1.0`. No se arrancan sin que él lo pida. Se suman más a medida que aparezcan.
 
-- [ ] **Pestaña de descuentos por banco** (pedida el 13/11/2026). Fuentes revisadas (ver `docs/context.md`, "Promos por banco y medio de pago"): Carrefour y Coto tienen endpoints con día, %, medio de pago y tope; DAR solo imágenes (a lo sumo un link a su página). `product.dtoDescuentosMediosPago` de Coto solo trae cuotas, no sirve. Propuesta: agrupadas por día, con cadena, %, medio de pago, tope, online o sucursal y link al legal; sin las de cuotas ni las de otras provincias (filtro por texto, porque no hay campo de región). Se leen en el scrape de cada cadena.
-- [ ] **Avisos en el celu cuando algo entra en oferta** (pedida el 13/11/2026). El usuario guarda un producto (como hoy en "Tus guardados") o una palabra clave ("yerba", "pañales") y recibe una notificación cuando aparece en oferta. Retoma la decisión del 10/11/2026 (push de la propia PWA con un Worker). Lo que implica, para decidir antes de arrancar:
+- [x] **Pestaña de descuentos por banco** (v0.1.1, en `release/v0.1.1`: página `/bancos/`, `data/promos/` y `/datos/bancos.json`; ver Decisiones del 21/11/2026). Lo que se evaluó (pedida el 13/11/2026): Fuentes revisadas (ver `docs/context.md`, "Promos por banco y medio de pago"): Carrefour y Coto tienen endpoints con día, %, medio de pago y tope; DAR solo imágenes (a lo sumo un link a su página). `product.dtoDescuentosMediosPago` de Coto solo trae cuotas, no sirve. Propuesta: agrupadas por día, con cadena, %, medio de pago, tope, online o sucursal y link al legal; sin las de cuotas ni las de otras provincias (filtro por texto, porque no hay campo de región). Se leen en el scrape de cada cadena.
+- [x] **Avisos en el celu cuando algo entra en oferta** (v0.1.1, en `release/v0.1.1`: solo productos guardados, sin palabras clave; ver Decisiones del 21/11/2026 y "Cómo hacer la corrida del día"). Lo que se evaluó (pedida el 13/11/2026): El usuario guarda un producto (como hoy en "Tus guardados") o una palabra clave ("yerba", "pañales") y recibe una notificación cuando aparece en oferta. Retoma la decisión del 10/11/2026 (push de la propia PWA con un Worker). Lo que implica, para decidir antes de arrancar:
     - Web Push con claves VAPID (una es secreta y va como secret en Cloudflare).
     - Un Worker con código para guardar las suscripciones (KV o D1). Hoy el Worker solo sirve archivos (ver la nota de `wrangler.jsonc`): el código tiene que atender solo la ruta de suscripción, así los archivos siguen gratis.
     - Hoy los guardados viven solo en el dispositivo. Para avisar, el servidor tiene que conocer los productos y palabras de cada suscripción: cambia Privacidad ("no guardamos datos") y hace falta poder borrarse.
@@ -269,7 +298,7 @@ Features pedidas por el mantenedor para después de `v0.1.0`. No se arrancan sin
 - [x] Al proteger `main` en el lanzamiento, el workflow ya no va a poder pushear `data/` directo. Decidido el 12/11/2026: excepción para el bot con una deploy key. Al final no se protegió `main` (ver Decisiones, 13/11/2026).
 - [x] Íconos definitivos: flecha blanca sobre celeste `#0369A1` (11/11/2026; antes Tangerine).
 - [x] Capturas del README (12/11/2026, ver paso 8).
-- [ ] Filtros por categoría en la web: Carrefour se scrapea por categoría y Coto trae `allAncestors`, pero `Offer` todavía no guarda la categoría.
+- [x] Filtros por categoría en la web (v0.1.1, en `release/v0.1.1`): `Offer.category`, filtro "Categoría" y recuadros "Por categoría" en la portada. DAR queda sin categoría.
 - [ ] Coto: confirmar que `sDisp` 1004 = disponible y 1001 = no disponible. Solo existen esos dos valores (36 tiendas en un producto: 30 con 1004, 6 con 1001). La web de Coto no deja elegir sucursal sin cuenta, así que no se pudo confirmar desde la web.
 - [ ] Carrefour: promos 2x1 (`Teasers` viene vacío en Intelligent Search).
 - [ ] DAR: `Detalle.asp` (sin revisar). Las promos bancarias son solo imágenes (revisado el 13/11/2026).
@@ -292,6 +321,18 @@ Del más nuevo al más viejo. Cada commit que cambie algo importante se agrega a
 
 | Commit | Fecha | Qué |
 | --- | --- | --- |
+| `fb73246` | 27/11/2026 | Avisos en marcha: KV, clave pública VAPID en `cron/wrangler.jsonc` y `config/site.toml`, y `push_url` del Worker. En `release/v0.1.1`. |
+| `66ba01b` | 22/11/2026 | "Datos abiertos" al pie, fuera de la fila de pestañas (a 390 px quedaba cortada). En `release/v0.1.1`. |
+| `a326a47` | 22/11/2026 | Lista de compras dentro de "Tus guardados": subtotal por cadena y aviso de lo que salió de oferta, con opción de sumarlo. En `release/v0.1.1`. |
+| `bea4f97` | 22/11/2026 | Mismo producto en otra cadena por código de barras ("En Coto: $X", link y "(más barato)"). En `release/v0.1.1`. |
+| `9b1513c` | 22/11/2026 | Fotos de las ofertas de DAR desde su servidor; una foto rota se saca de la tarjeta. En `release/v0.1.1`. |
+| `9b6fed4` | 21/11/2026 | Historial de precios: docs, Términos, Preguntas y `fetch-depth: 0` en `deploy.yml`. En `release/v0.1.1`. |
+| `d41f2ec` | 21/11/2026 | Historial de precios desde git: "El más bajo en 30 días", "El precio anterior subió hace poco" y baja de DAR contra su precio habitual. En `release/v0.1.1`. |
+| `6302cdf` | 21/11/2026 | Descuentos por banco de Carrefour y Coto: página `/bancos/`, `data/promos/`, `/datos/bancos.json` y textos en Términos, Privacidad y Preguntas. En `release/v0.1.1`. |
+| `12db8d6` | 21/11/2026 | Avisos de "volvió a estar en oferta": Web Push desde el Worker `cron/` (KV, VAPID, 12:30) y aviso dentro de la app. Código listo, sin poner en marcha. En `release/v0.1.1`. |
+| `f4752fa` | 21/11/2026 | Categorías propias: `Offer.category`, recuadros "Por categoría", filtro y datos abiertos. En `release/v0.1.1`. |
+| `d3b55ab` | 21/11/2026 | Corrida del día automática: `daily.yml` y Worker `ofertas-rosario-cron` (12:00 hora argentina). En `release/v0.1.1`. |
+| `60f0a97` | 21/11/2026 | Flujo de ramas por release (rama + PR, sin `development`). En `release/v0.1.1`. |
 | `e8bdc6e` | 13/11/2026 | `main` sin protección (decisión) y hash del lanzamiento. |
 | `cf1c804` | 13/11/2026 | Lanzamiento: términos y privacidad reforzados, sin promesas de horario, URL del repo en el pie y en el User-Agent, fuentes de promos bancarias y próximas releases. |
 | `42810c4` | 13/11/2026 | Sin cron: un workflow de scrape por cadena y uno de deploy, todos a mano. |

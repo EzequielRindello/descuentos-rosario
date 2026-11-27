@@ -1,5 +1,6 @@
 mod config;
 mod detector;
+mod history;
 mod http;
 mod model;
 mod output;
@@ -14,7 +15,7 @@ use chrono::{FixedOffset, Utc};
 
 use crate::config::Config;
 use crate::http::Http;
-use crate::model::{Chain, Offer};
+use crate::model::{BankPromo, Chain, Offer};
 use crate::output::{ChainReport, RunReport};
 
 const USAGE: &str = "\
@@ -99,7 +100,8 @@ async fn scrape(args: Args) -> Result<()> {
     let now = Utc::now().with_timezone(&FixedOffset::west_opt(3 * 3600).expect("valid offset"));
     let mut report = RunReport::new(now);
     for (chain, result) in [(Chain::Carrefour, carrefour), (Chain::Coto, coto), (Chain::Dar, dar)] {
-        let Some((result, seconds)) = result else { continue };
+        let Some((result, promos, seconds)) = result else { continue };
+        save_promos(&args.data, chain, promos);
         let result = result.and_then(|offers| check_volume(&args.data, chain, offers));
         let chain_report = match result {
             Ok(mut offers) => {
@@ -143,21 +145,46 @@ fn check_volume(data_dir: &std::path::Path, chain: Chain, offers: Vec<Offer>) ->
     Ok(offers)
 }
 
-async fn run_chain(enabled: bool, config: &Config, chain: Chain) -> Option<(Result<Vec<Offer>>, u64)> {
+/// Bank promos are a side read: failing (or bringing none after a day that had some) keeps the
+/// previous file and never marks the chain as failed.
+fn save_promos(data_dir: &std::path::Path, chain: Chain, promos: Result<Option<Vec<BankPromo>>>) {
+    let mut promos = match promos {
+        Ok(Some(promos)) => promos,
+        Ok(None) => return,
+        Err(error) => {
+            tracing::warn!("{}: bank promos failed, keeping the previous file: {error:#}", chain.id());
+            return;
+        }
+    };
+    if promos.is_empty() && output::previous_promo_count(data_dir, chain).is_some_and(|n| n > 0) {
+        tracing::warn!("{}: no bank promos today, keeping the previous file", chain.id());
+        return;
+    }
+    if let Err(error) = output::write_promos(data_dir, chain, &mut promos) {
+        tracing::warn!("{}: could not write bank promos: {error:#}", chain.id());
+    }
+}
+
+type ChainRun = (Result<Vec<Offer>>, Result<Option<Vec<BankPromo>>>, u64);
+
+async fn run_chain(enabled: bool, config: &Config, chain: Chain) -> Option<ChainRun> {
     if !enabled {
         return None;
     }
     let start = Instant::now();
-    let result = async {
-        // DAR needs a session cookie and an old TLS cipher suite.
-        let is_dar = chain == Chain::Dar;
-        let http = Http::new(&config.user_agent, config.request_delay_ms, is_dar, is_dar)?;
-        match chain {
-            Chain::Carrefour => scrapers::carrefour::scrape(&config.carrefour, &http).await,
-            Chain::Coto => scrapers::coto::scrape(&config.coto, &http).await,
-            Chain::Dar => scrapers::dar::scrape(&config.dar, &http).await,
-        }
-    }
-    .await;
-    Some((result, start.elapsed().as_secs()))
+    // DAR needs a session cookie and an old TLS cipher suite.
+    let is_dar = chain == Chain::Dar;
+    let http = match Http::new(&config.user_agent, config.request_delay_ms, is_dar, is_dar) {
+        Ok(http) => http,
+        Err(error) => return Some((Err(error), Ok(None), start.elapsed().as_secs())),
+    };
+    let result = match chain {
+        Chain::Carrefour => scrapers::carrefour::scrape(&config.carrefour, &config.categories, &http).await,
+        Chain::Coto => scrapers::coto::scrape(&config.coto, &config.categories, &http).await,
+        Chain::Dar => scrapers::dar::scrape(&config.dar, &http).await,
+    };
+    let seconds = start.elapsed().as_secs();
+    // Same client and pacing as the offers, a few requests more.
+    let promos = scrapers::promos::scrape(chain, &config.promo_names, &http).await;
+    Some((result, promos, seconds))
 }

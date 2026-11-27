@@ -60,6 +60,31 @@
 </section>
 
 <section class="info-card">
+<h2>¿Qué quiere decir "El más bajo en 30 días" o "El precio anterior subió hace poco"?</h2>
+<p>Son comparaciones automáticas con los precios que guardamos de ese producto en los últimos 30 días, solo de los días en que estuvo en oferta (los demás días no tenemos su precio). "El más bajo en 30 días" es que hoy está más barato que todos esos días. "El precio anterior subió hace poco" es que el precio tachado subió más de 15% y el precio de oferta no bajó: el descuento se ve más grande, pero pagás lo mismo que antes. En DAR, que no publica precio anterior, mostramos cuánto más barato está que su precio habitual. Son datos informativos y aproximados, no una opinión sobre la cadena.</p>
+</section>
+
+<section class="info-card">
+<h2>¿Qué es "En Coto: $..." o "En Carrefour: $..." en una oferta?</h2>
+<p>Es el mismo producto, con el mismo código de barras, en oferta ese día en la otra cadena, y "(más barato)" si allá cuesta menos. Solo aparece cuando está en oferta en las dos: los precios sin oferta no los tenemos. Si dice "c/u llevando 2", ese precio es por unidad llevando esa cantidad. DAR no publica códigos de barras, así que no entra. Cada precio es el de la web de cada cadena para su sucursal de Rosario.</p>
+</section>
+
+{% if has_promos %}<section class="info-card">
+<h2>¿De dónde salen los descuentos por banco?</h2>
+<p>De las páginas de promociones de las cadenas: los leemos cuando actualizamos las ofertas y los ordenamos por día en <a href="/bancos/">Bancos</a>. Los dan las cadenas junto con cada banco, tarjeta o billetera; no tenemos relación con ninguno. Antes de pagar, revisá el legal en la web de la cadena: ahí están el tope, las exclusiones y dónde vale.</p>
+</section>
+
+<section class="info-card">
+<h2>¿Por qué no aparece una promo de mi banco?</h2>
+<p>Mostramos solo descuentos en %: las de cuotas sin interés no están. Tampoco las que según su legal son solo para otras provincias, ni las de DAR, que publica sus promos como imágenes. El filtro es automático y puede equivocarse{% if site.contact %}: si falta una o sobra otra, avisanos a <a href="mailto:{{ site.contact }}">{{ site.contact }}</a>{% endif %}.</p>
+</section>
+
+<section class="info-card">
+<h2>¿El descuento del banco se suma al de la oferta?</h2>
+<p>Depende de cada promo: algunas se acumulan y otras no valen para productos en oferta o excluyen secciones como carnicería. Lo dice cada una en sus condiciones o en el legal de la cadena. Los precios de las ofertas no incluyen ningún descuento por banco.</p>
+</section>
+
+{% endif %}<section class="info-card">
 <h2>¿Por qué no está mi supermercado?</h2>
 <p>Solo sumamos cadenas que publican sus precios en la web y permiten leerlos (respetamos su archivo <code>robots.txt</code>). Algunas no tienen web de precios y otras no permiten leerla de forma automática.</p>
 </section>
@@ -71,7 +96,7 @@
 
 <section class="info-card">
 <h2>¿Tengo que registrarme? ¿Guardan mis datos?</h2>
-<p>No hace falta registrarse y no guardamos datos tuyos. Lo que marcás como guardado queda solo en tu dispositivo. Más detalles en <a href="/privacidad/">Privacidad</a>.</p>
+<p>No hace falta registrarse y no guardamos datos tuyos. Lo que marcás como guardado queda en tu dispositivo{% if site.push_url and site.vapid_public_key %}; solo si activás los avisos nos llegan los códigos de esos productos, para avisarte cuando vuelven a estar en oferta{% endif %}. Más detalles en <a href="/privacidad/">Privacidad</a>.</p>
 </section>
 
 <section class="info-card">
@@ -80,7 +105,12 @@
 </section>
 
 <section class="info-card">
-<h2>¿Funciona sin señal?</h2>
+{% if site.push_url and site.vapid_public_key %}<h2>¿Me pueden avisar cuando algo vuelve a estar en oferta?</h2>
+<p>Sí. Guardá los productos que te interesan y, en "Tus guardados" de la portada, tocá <b>Avisarme cuando vuelvan a estar en oferta</b>. Te llega una notificación por día como mucho, cerca del mediodía, solo si alguno volvió. En iPhone funciona con la app instalada (iOS 16.4 o más nuevo). Se apaga con el mismo botón.</p>
+</section>
+
+<section class="info-card">
+{% endif %}<h2>¿Funciona sin señal?</h2>
 <p>Sí, con la última versión que abriste con conexión. Fijate la fecha de actualización: sin señal no se pueden traer las ofertas nuevas.</p>
 </section>
 

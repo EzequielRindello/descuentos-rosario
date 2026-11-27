@@ -153,6 +153,37 @@ async function checkFreshness() {
   notice.hidden = false;
 }
 
+// ---------- Product photos ----------
+
+// A photo the chain no longer has (404) would show a broken image: drop it and the card falls
+// back to its no-photo layout. Capture phase, because "error" does not bubble.
+document.addEventListener(
+  'error',
+  (event) => {
+    const img = event.target;
+    if (img instanceof HTMLImageElement && img.parentElement && img.parentElement.classList.contains('card')) img.remove();
+  },
+  true
+);
+
+// ---------- Bank promos ----------
+
+// /bancos/: marks today's day (Argentina) and moves it first, in the day links and the sections.
+function setupPromoDays() {
+  const nav = $('.day-nav');
+  if (!nav) return;
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
+  const today = String(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(weekday) + 1);
+  const link = nav.querySelector(`a[data-day="${today}"]`);
+  if (!link) return;
+  link.setAttribute('aria-current', 'date');
+  nav.prepend(link);
+  const section = document.querySelector(`section.promo-day[data-day="${today}"]`);
+  if (!section) return;
+  nav.after(section);
+  section.querySelector('.promo-today').hidden = false;
+}
+
 function setupFreshness() {
   checkFreshness();
   // An installed app can stay open for days: check again when it comes back or reconnects.
@@ -164,7 +195,7 @@ function setupFreshness() {
 
 // ---------- Data ----------
 
-// Rows of /datos/buscar.json: [key, chainName, name, price, listPrice, discountPct, promo, url].
+// Rows of /datos/buscar.json: [key, chainName, name, price, listPrice, discountPct, promo, url, image, category].
 let indexPromise = null;
 let indexReady = false;
 function loadIndex() {
@@ -243,7 +274,7 @@ function promoChip(promo) {
 // Same markup as templates/offers.html, so search results and saved offers look identical.
 function renderList(rows) {
   const list = el('ol', 'cards');
-  for (const [key, chainName, name, price, listPrice, discount, promo, url, image] of rows) {
+  for (const [key, chainName, name, price, listPrice, discount, promo, url, image, , history, other] of rows) {
     const item = el('li', 'card');
     item.dataset.id = key;
     if (image) {
@@ -269,6 +300,23 @@ function renderList(rows) {
       if (listPrice) tags.append(el('em', discount >= 40 ? 'badge badge-big' : 'badge', '-' + discount + '%', el('span', 'visually-hidden', ' de descuento')));
       if (chip) tags.append(' ', el('span', 'chip', chip));
     }
+    // Price history note, same markup as templates/offers.html: [kind, text] from the build.
+    const historyNote = history ? el('p', 'history-note history-' + history[0], history[1]) : null;
+    // Same product in another chain, same markup as templates/offers.html: [chain, cents, url, units].
+    let otherNote = null;
+    if (other) {
+      const [otherChain, otherPrice, otherUrl, otherUnits] = other;
+      let priceNode = formatArs(otherPrice);
+      if (otherUrl) {
+        priceNode = el('a', '', formatArs(otherPrice));
+        priceNode.href = otherUrl;
+        priceNode.rel = 'nofollow noopener';
+        priceNode.target = '_blank';
+      }
+      otherNote = el('p', 'card-other', 'En ' + otherChain + ': ', priceNode);
+      if (otherUnits) otherNote.append(' c/u llevando ' + otherUnits);
+      if (otherPrice < price) otherNote.append(' ', el('strong', '', '(más barato)'));
+    }
     const actions = el('p', 'card-actions');
     if (url) {
       const link = el('a', 'card-link', 'ver en ' + chainName + ' ', icon('external'));
@@ -278,7 +326,7 @@ function renderList(rows) {
       actions.append(link);
     }
     actions.append(saveButton(key, name));
-    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, actions));
+    item.append(el('div', 'card-body', el('h3', 'card-name', name), el('p', 'card-chain', chainName), priceLine, tags, historyNote, otherNote, actions));
     list.append(item);
   }
   return list;
@@ -286,7 +334,7 @@ function renderList(rows) {
 
 // ---------- Search and filters ----------
 // Everything runs over /datos/buscar.json (all of today's offers). The filters live in the URL
-// (?q=&cadena=&min=&promo=&desde=&hasta=&orden=) so a filtered view can be shared or restored with
+// (?q=&cadena=&categoria=&min=&promo=&desde=&hasta=&orden=) so a filtered view can be shared or restored with
 // "back". On a chain page the form has a single hidden chain box: searches stay inside that chain
 // and, with no filter, the page shows its own server-rendered list again.
 
@@ -300,6 +348,19 @@ function promoKind(row) {
   if (/2da/i.test(promo)) return '2da';
   if (/llevando/i.test(promo)) return 'varias';
   return row[5] ? 'rebaja' : '';
+}
+
+// The "Categoría" select is missing on DAR's page and before the data has categories.
+function categorySelect() {
+  return $('#f-cat');
+}
+
+// Back to the defaults: every select and price field empty (the chain boxes are reset apart).
+function clearFilterFields() {
+  ['#f-cat', '#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => {
+    const field = $(id);
+    if (field) field.value = '';
+  });
 }
 
 function chainBoxes() {
@@ -373,6 +434,7 @@ function readFilters() {
     q: $('#q').value,
     chains,
     allChains: chains.length === chainBoxes().length,
+    cat: categorySelect() ? categorySelect().value : '',
     min: Number($('#f-min').value) || 0,
     promo: $('#f-promo').value,
     from: price.from,
@@ -393,6 +455,7 @@ function filtersFromUrl() {
     const select = $(id);
     if ([...select.options].some((option) => option.value === value)) select.value = value;
   };
+  if (categorySelect()) setSelect('#f-cat', params.get('categoria') || '');
   setSelect('#f-min', params.get('min') || '');
   setSelect('#f-promo', params.get('promo') || '');
   setSelect('#f-orden', params.get('orden') || '');
@@ -408,6 +471,7 @@ function filtersToUrl(filters, push) {
   const params = new URLSearchParams();
   if (filters.q.trim()) params.set('q', filters.q.trim());
   if (!filters.allChains) params.set('cadena', filters.chains.join(','));
+  if (filters.cat) params.set('categoria', filters.cat);
   if (filters.min) params.set('min', String(filters.min));
   if (filters.promo) params.set('promo', filters.promo);
   if (filters.from) params.set('desde', String(filters.from));
@@ -476,15 +540,16 @@ function setupSearch() {
     if (!event.target.closest('button[data-clear-all]')) return;
     $('#q').value = '';
     chainBoxes().forEach((box) => (box.checked = true));
-    ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
+    clearFilterFields();
     updateFilterCount();
     update(true);
     $('#q').focus();
   });
-  // "Limpiar filtros": back to every chain, any discount, promo and price, default order. Keeps the text.
+  // "Limpiar filtros": back to every chain and category, any discount, promo and price, default
+  // order. Keeps the text.
   $('#limpiar-filtros').addEventListener('click', () => {
     chainBoxes().forEach((box) => (box.checked = true));
-    ['#f-min', '#f-promo', '#f-desde', '#f-hasta', '#f-orden'].forEach((id) => ($(id).value = ''));
+    clearFilterFields();
     updateFilterCount();
     update(true);
     $('#q').focus();
@@ -497,7 +562,7 @@ function setupSearch() {
   };
   syncPanel();
   wide.addEventListener('change', syncPanel);
-  // Shortcuts in the empty state ("50% o más", "2x1 y 3x2", "yerba"...): apply them in place
+  // Shortcuts in the empty state ("50% o más", "2x1 y 3x2", a category...): apply them in place
   // instead of reloading the page. Delegated, because the empty state is taken out and put back.
   results.addEventListener('click', (event) => {
     const link = event.target.closest('a[data-quick]');
@@ -541,7 +606,7 @@ function updateFilterCount() {
   const counter = $('#filtros-cuenta');
   if (!counter) return;
   const filters = readFilters();
-  const active = [!filters.allChains, filters.min, filters.promo, filters.from || filters.to, filters.orden].filter(Boolean).length;
+  const active = [!filters.allChains, filters.cat, filters.min, filters.promo, filters.from || filters.to, filters.orden].filter(Boolean).length;
   counter.textContent = active ? '(' + active + ')' : '';
   const clear = $('#limpiar-filtros');
   if (clear) clear.hidden = active === 0;
@@ -579,7 +644,7 @@ async function renderResults(filters, results) {
   const render = ++renderId;
   const words = searchWords(filters.q);
   // On a chain page, a different order alone also needs the full list (the page only has 100).
-  const filtering = words.length || !filters.allChains || filters.min || filters.promo || filters.from || filters.to || (isChainPage() && filters.orden);
+  const filtering = words.length || !filters.allChains || filters.cat || filters.min || filters.promo || filters.from || filters.to || (isChainPage() && filters.orden);
   if (!filtering) {
     // Back to what the server rendered (shortcuts, or the chain's list). Its save buttons may be
     // stale: they were detached while results were shown.
@@ -621,6 +686,7 @@ async function renderResults(filters, results) {
   const matches = found
     .map((entry) => entry.row)
     .filter((row) => chains.has(row[0].split(':')[0]))
+    .filter((row) => !filters.cat || row[9] === filters.cat)
     .filter((row) => !filters.min || (row[5] || 0) >= filters.min)
     .filter((row) => !filters.promo || promoKind(row) === filters.promo)
     .filter((row) => !filters.from || row[3] >= filters.from * 100)
@@ -651,6 +717,9 @@ async function renderResults(filters, results) {
     note.className = 'results-hint';
     note.textContent = 'DAR no publica precio anterior: no aparece al filtrar por descuento.';
     parts.push(note);
+  }
+  if (filters.cat && chains.has('dar')) {
+    parts.push(el('p', 'results-hint', 'DAR no publica categorías: no aparece al filtrar por categoría. Buscalo por nombre.'));
   }
   // How to see the same price on each chain's site, for the chains in the shown results (a chain
   // page already says it above the form).
@@ -747,7 +816,9 @@ function setupSaved() {
     }
     document.querySelectorAll('button[data-fav="' + CSS.escape(key) + '"]').forEach((b) => syncButton(b, !saved));
     renderSaved();
+    syncAlertsLater();
   });
+  setupShoppingList();
   renderSaved();
 }
 
@@ -766,13 +837,17 @@ async function renderSaved() {
     return;
   }
   const byKey = new Map(index.map((entry) => [entry.row[0], entry.row]));
-  // Fill in names for items saved by older versions, while their offer is still listed.
-  if (items.some((item) => !item.name && byKey.has(item.key))) {
-    writeSaved(items.map((item) => (!item.name && byKey.has(item.key) ? { ...item, name: byKey.get(item.key)[2] } : item)));
-  }
+  const updated = trackReturns(items, byKey);
+  if (updated !== items) writeSaved(updated);
+  showReturned(updated, byKey);
   const rows = items.map((item) => byKey.get(item.key)).filter(Boolean);
   const gone = items.filter((item) => !byKey.has(item.key));
   container.replaceChildren();
+  const listView = syncViewSwitch();
+  if (listView) {
+    container.append(renderShoppingList(items, byKey));
+    return;
+  }
   if (rows.length) container.append(renderList(rows));
   if (gone.length) {
     const note = document.createElement('p');
@@ -784,6 +859,428 @@ async function renderSaved() {
     }
     container.append(note, list);
   }
+}
+
+// Marks each saved item as gone (not on offer) or back (on offer again, with the day of the data
+// that brought it back), and fills in names for items saved by older versions. Returns the same
+// array when nothing changed. A chain missing from today's data (failed scrape) is not "gone".
+function trackReturns(items, byKey) {
+  const day = document.body.dataset.updated || '';
+  const chains = new Set([...byKey.keys()].map((key) => key.split(':')[0]));
+  let changed = false;
+  const next = items.map((item) => {
+    const row = byKey.get(item.key);
+    let result = item;
+    if (!result.name && row) result = { ...result, name: row[2] };
+    if (!row && !result.gone && chains.has(item.key.split(':')[0])) {
+      result = { ...result, gone: true };
+      delete result.back;
+    } else if (row && result.gone && day) {
+      result = { ...result, back: day };
+      delete result.gone;
+    }
+    if (result !== item) changed = true;
+    return result;
+  });
+  return changed ? next : items;
+}
+
+// "Volvió a estar en oferta: ..." above the saved list, for the items that came back with today's data.
+function showReturned(items, byKey) {
+  const note = $('#volvieron');
+  if (!note) return;
+  const day = document.body.dataset.updated || '';
+  const names = items.filter((item) => day && item.back === day && byKey.has(item.key)).map((item) => byKey.get(item.key)[2]);
+  note.hidden = names.length === 0;
+  note.textContent = names.length ? (names.length === 1 ? 'Volvió a estar en oferta: ' : 'Volvieron a estar en oferta: ') + names.join(', ') + '.' : '';
+}
+
+// ---------- Shopping list: a view of "Tus guardados" (only on this device) ----------
+// Saved offers grouped by chain, with a box to tick off what is already in the cart and what is
+// left to pay in each chain (one unit of each). Saved items not on offer today stay out unless the
+// visitor asks for them, and then they are listed without a price. A tick is dropped when its item
+// goes off (or back on) offer, so an old tick never hides something that changed.
+
+const VIEW_KEY = 'ofertas-rosario:guardados-vista';
+const TICKS_KEY = 'ofertas-rosario:lista-tildados';
+const LIST_GONE_KEY = 'ofertas-rosario:lista-sin-oferta';
+const CHAIN_ORDER = Object.keys(CHAIN_NAMES);
+
+// Marks the current view on the "Tarjetas | Lista de compras" switch; true for the list.
+function syncViewSwitch() {
+  const list = readFlag(VIEW_KEY) === 'lista';
+  document.querySelectorAll('.view-switch button[data-view]').forEach((button) => {
+    button.setAttribute('aria-pressed', String((button.dataset.view === 'list') === list));
+  });
+  return list;
+}
+
+// { key: onOffer }: the ticked items and whether each was on offer when ticked.
+function readTicks() {
+  try {
+    const ticks = JSON.parse(readFlag(TICKS_KEY) || '{}');
+    return ticks && typeof ticks === 'object' && !Array.isArray(ticks) ? ticks : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTicks(ticks) {
+  writeFlag(TICKS_KEY, Object.keys(ticks).length ? JSON.stringify(ticks) : null);
+}
+
+// Position of each category in the "Categoría" select (the order of config/stores.toml), so the
+// list follows the store's aisles more or less. DAR has no categories: its items go by name.
+function categoryRank() {
+  const rank = new Map();
+  const select = categorySelect();
+  if (select) [...select.options].forEach((option, i) => option.value && rank.set(option.value, i));
+  return rank;
+}
+
+function renderShoppingList(items, byKey) {
+  const chainsWithData = new Set([...byKey.keys()].map((key) => key.split(':')[0]));
+  const savedKeys = new Set(items.map((item) => item.key));
+  const ticks = readTicks();
+  let ticksChanged = false;
+  for (const [key, onOffer] of Object.entries(ticks)) {
+    // A chain missing from today's data (failed scrape) says nothing about its items: keep the tick.
+    const changed = chainsWithData.has(key.split(':')[0]) && byKey.has(key) !== onOffer;
+    if (!savedKeys.has(key) || changed) {
+      delete ticks[key];
+      ticksChanged = true;
+    }
+  }
+  if (ticksChanged) writeTicks(ticks);
+
+  const withGone = readFlag(LIST_GONE_KEY) === '1';
+  const rank = categoryRank();
+  const groups = new Map();
+  let goneCount = 0;
+  for (const item of items) {
+    const row = byKey.get(item.key) || null;
+    if (!row) {
+      goneCount += 1;
+      if (!withGone) continue;
+    }
+    const chain = item.key.split(':')[0];
+    if (!groups.has(chain)) groups.set(chain, []);
+    groups.get(chain).push({ key: item.key, row, name: row ? row[2] : item.name || 'Un producto guardado' });
+  }
+  const place = (entry) => (!entry.row ? 1000 : rank.has(entry.row[9]) ? rank.get(entry.row[9]) : 900);
+  const chainPlace = (chain) => (CHAIN_ORDER.includes(chain) ? CHAIN_ORDER.indexOf(chain) : CHAIN_ORDER.length);
+
+  const wrap = el('div', 'shop');
+  for (const chain of [...groups.keys()].sort((a, b) => chainPlace(a) - chainPlace(b))) {
+    const entries = groups.get(chain).sort((a, b) => place(a) - place(b) || a.name.localeCompare(b.name, 'es'));
+    const heading = el('h3', 'shop-chain-name', chainOf(chain), ' ', el('span', 'shop-count', entries.length === 1 ? '1 producto' : entries.length + ' productos'));
+    heading.id = 'lista-' + chain;
+    const list = el('ul', 'shop-items');
+    for (const entry of entries) list.append(shopItem(entry, ticks));
+    const group = el('section', 'shop-chain', heading, list, el('p', 'shop-total'));
+    group.setAttribute('aria-labelledby', heading.id);
+    group.dataset.chain = chainOf(chain);
+    updateShopTotal(group);
+    wrap.append(group);
+  }
+
+  if (goneCount) {
+    const one = goneCount === 1;
+    const text = (one ? '1 guardado hoy no está en oferta' : goneCount + ' guardados hoy no están en oferta') +
+      (withGone ? (one ? ': va sin precio y no suma al total.' : ': van sin precio y no suman al total.') : one ? ' y no entra en la lista.' : ' y no entran en la lista.');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.id = 'lista-sin-oferta';
+    box.checked = withGone;
+    wrap.append(el('div', 'shop-gone', el('p', '', text), el('label', 'chip-check', box, one ? 'Sumarlo sin precio' : 'Sumarlos sin precio')));
+  }
+
+  if (groups.size) {
+    const share = el('button', 'btn btn-primary', 'Compartir lista');
+    share.type = 'button';
+    share.id = 'lista-compartir';
+    const uncheck = el('button', '', 'Destildar todo');
+    uncheck.type = 'button';
+    uncheck.id = 'lista-destildar';
+    const status = el('p', 'field-hint');
+    status.id = 'lista-estado';
+    status.setAttribute('aria-live', 'polite');
+    wrap.append(el('p', 'shop-actions', share, uncheck), status);
+    syncUncheck(wrap);
+  }
+  return wrap;
+}
+
+// One row: the whole row is the checkbox's label (a big touch target), with name, price and promo.
+function shopItem(entry, ticks) {
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.dataset.shop = entry.key;
+  box.checked = entry.key in ticks;
+  const label = el('label', '', box, el('span', 'shop-name', entry.name));
+  const item = el('li', entry.row ? 'shop-item' : 'shop-item shop-item-gone', label);
+  if (!entry.row) {
+    label.append(el('span', 'shop-price', 'sin oferta hoy'));
+    item.dataset.text = entry.name + ': sin oferta hoy';
+    return item;
+  }
+  const [, , , price, , , promo] = entry.row;
+  const units = promoUnits(promo);
+  const chip = promoChip(promo);
+  item.dataset.price = String(price);
+  item.dataset.text = entry.name + ': ' + formatArs(price) + (units ? ' c/u llevando ' + units : '') + (chip ? ' (' + chip + ')' : '');
+  label.append(el('span', 'shop-price', formatArs(price)));
+  if (units || chip) label.append(el('span', 'shop-meta', chip ? el('span', 'chip', chip) : null, chip && units ? ' ' : null, units ? 'c/u llevando ' + units : null));
+  return item;
+}
+
+// Unticked rows of a chain: what is left and what it costs (rows without a price don't add up).
+function shopLeft(group) {
+  const left = [...group.querySelectorAll('.shop-item')].filter((item) => !item.querySelector('input').checked);
+  const cents = left.reduce((sum, item) => sum + Number(item.dataset.price || 0), 0);
+  return { left, cents, priced: left.some((item) => item.dataset.price) };
+}
+
+function updateShopTotal(group) {
+  const total = group.querySelector('.shop-total');
+  const { left, cents, priced } = shopLeft(group);
+  total.hidden = left.length > 0 && !priced;
+  if (!left.length) total.replaceChildren(el('span', '', 'Listo, ya tenés todo.'));
+  else total.replaceChildren(el('span', '', 'Te falta ', el('span', 'shop-total-hint', '(1 de cada uno)')), el('strong', '', formatArs(cents)));
+}
+
+function syncUncheck(root) {
+  const button = root.querySelector('#lista-destildar');
+  if (button) button.hidden = !root.querySelector('input[data-shop]:checked');
+}
+
+function shopStatus(text) {
+  const status = $('#lista-estado');
+  if (status) status.textContent = text;
+}
+
+// Plain text by chain, without what is ticked: the phone's share menu, or the clipboard on a computer.
+async function shareShoppingList() {
+  const lines = [];
+  for (const group of document.querySelectorAll('.shop-chain')) {
+    const { left, cents, priced } = shopLeft(group);
+    if (!left.length) continue;
+    lines.push('', group.dataset.chain, ...left.map((item) => '- ' + item.dataset.text));
+    if (priced) lines.push('Te falta: ' + formatArs(cents) + ' (1 de cada uno)');
+  }
+  if (!lines.length) {
+    shopStatus('No queda nada sin tildar.');
+    return;
+  }
+  const site = document.querySelector('meta[property="og:site_name"]');
+  const updated = new Date(document.body.dataset.updated || '');
+  const title = 'Lista de compras' + (site ? ' de ' + site.content : '') + (Number.isNaN(updated.getTime()) ? '' : ', precios del ' + dayLabel(updated));
+  const text = title + '\n' + lines.join('\n') + '\n\n' + location.origin + '/';
+  if (window.matchMedia('(pointer: coarse)').matches && navigator.share) {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    shopStatus('Lista copiada. Pegala donde quieras.');
+  } catch {
+    shopStatus('No se pudo copiar la lista. Probá de nuevo.');
+  }
+}
+
+function setupShoppingList() {
+  const container = $('#guardados-lista');
+  if (!container) return;
+  document.querySelectorAll('.view-switch button[data-view]').forEach((button) => {
+    button.addEventListener('click', () => {
+      writeFlag(VIEW_KEY, button.dataset.view === 'list' ? 'lista' : null);
+      renderSaved();
+    });
+  });
+  container.addEventListener('change', (event) => {
+    const box = event.target;
+    if (box.id === 'lista-sin-oferta') {
+      writeFlag(LIST_GONE_KEY, box.checked ? '1' : null);
+      renderSaved().then(() => {
+        const again = $('#lista-sin-oferta');
+        if (again) again.focus();
+      });
+      return;
+    }
+    if (!box.dataset || !box.dataset.shop) return;
+    const ticks = readTicks();
+    if (box.checked) ticks[box.dataset.shop] = !box.closest('.shop-item-gone');
+    else delete ticks[box.dataset.shop];
+    writeTicks(ticks);
+    updateShopTotal(box.closest('.shop-chain'));
+    syncUncheck(container);
+  });
+  container.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.id === 'lista-compartir') shareShoppingList();
+    if (button.id === 'lista-destildar') {
+      writeTicks({});
+      container.querySelectorAll('input[data-shop]').forEach((box) => {
+        box.checked = false;
+      });
+      container.querySelectorAll('.shop-chain').forEach(updateShopTotal);
+      syncUncheck(container);
+      shopStatus('Listo, destildaste todo.');
+      const share = $('#lista-compartir');
+      if (share) share.focus();
+    }
+  });
+}
+
+// ---------- Alerts: "volvió a estar en oferta" (Web Push) ----------
+// Optional, from "Tus guardados". The Worker in cron/ keeps, per device, the push endpoint and the
+// keys of the saved offers (no names, no personal data), and once a day (12:30) pushes to the
+// devices where one of them came back on offer. The service worker writes the notification.
+
+const ALERTS_KEY = 'ofertas-rosario:avisos';
+// Last list sent to the Worker: it is sent again only when it changes.
+const ALERTS_SENT_KEY = 'ofertas-rosario:avisos-enviado';
+const ALERTS_BLOCKED = 'Las notificaciones están bloqueadas para este sitio. Para recibir avisos, permitilas desde la configuración del navegador.';
+
+function readFlag(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeFlag(key, value) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Storage blocked: the alerts state just doesn't persist.
+  }
+}
+
+function alertsOn() {
+  return readFlag(ALERTS_KEY) === '1' && 'Notification' in window && Notification.permission === 'granted';
+}
+
+function pushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+// The VAPID public key travels as base64url; the browser wants its raw bytes.
+function vapidKeyBytes(base64url) {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (base64url.length % 4)) % 4);
+  return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+}
+
+async function postAlerts(path, body) {
+  const response = await fetch($('#avisos').dataset.pushUrl.replace(/\/$/, '') + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+}
+
+// The browser's subscription, created when there is none (or the browser dropped it).
+async function ensureSubscription() {
+  const registration = await navigator.serviceWorker.ready;
+  const current = await registration.pushManager.getSubscription();
+  if (current) return current;
+  return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKeyBytes($('#avisos').dataset.vapidKey) });
+}
+
+// Sends the saved keys, plus which of them are on offer today (so saving something already on
+// offer never triggers an alert). Skipped when the list did not change since the last time.
+async function syncAlerts(subscription) {
+  const keys = readSaved().map((item) => item.key);
+  const sent = JSON.stringify({ endpoint: subscription.endpoint, saved: keys });
+  if (readFlag(ALERTS_SENT_KEY) === sent) return;
+  let onOffer = [];
+  try {
+    const live = new Set((await loadIndex()).map((entry) => entry.row[0]));
+    onOffer = keys.filter((key) => live.has(key));
+  } catch {
+    // Without today's offers the Worker keeps its own state for known keys.
+  }
+  await postAlerts('/suscripcion', { endpoint: subscription.endpoint, saved: keys, onOffer });
+  writeFlag(ALERTS_SENT_KEY, sent);
+}
+
+// Called after the saved list changes.
+function syncAlertsLater() {
+  if (alertsOn() && pushSupported()) ensureSubscription().then(syncAlerts).catch(() => {});
+}
+
+function showAlertsState(message) {
+  const button = $('#avisos-boton');
+  const on = alertsOn();
+  button.textContent = on ? 'Desactivar los avisos' : 'Avisarme cuando vuelvan a estar en oferta';
+  button.setAttribute('aria-pressed', String(on));
+  const status = $('#avisos-estado');
+  status.textContent =
+    message ||
+    (on
+      ? 'Avisos activados: una vez por día, cerca de las 12:30, si alguno vuelve a estar en oferta.'
+      : Notification.permission === 'denied'
+        ? ALERTS_BLOCKED
+        : '');
+}
+
+function setupAlerts() {
+  const box = $('#avisos');
+  if (!box) return;
+  if (!pushSupported()) {
+    // iPhone: Web Push exists only in the installed app (iOS 16.4 or newer).
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !isInstalledApp()) {
+      box.hidden = false;
+      $('#avisos-boton').hidden = true;
+      $('#avisos-estado').textContent = 'En iPhone, los avisos funcionan con la app instalada ("¡Instalá la app!", arriba).';
+    }
+    return;
+  }
+  box.hidden = false;
+  showAlertsState();
+  // Keeps the Worker in step: subscribes again if the browser dropped it and sends a changed list.
+  if (alertsOn()) ensureSubscription().then(syncAlerts).catch(() => {});
+
+  const button = $('#avisos-boton');
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      if (alertsOn()) {
+        const subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+        if (subscription) {
+          // If the Worker can't be reached, the push service rejects the next push and the Worker
+          // drops the subscription then.
+          await postAlerts('/baja', { endpoint: subscription.endpoint }).catch(() => {});
+          await subscription.unsubscribe();
+        }
+        writeFlag(ALERTS_KEY, null);
+        writeFlag(ALERTS_SENT_KEY, null);
+        showAlertsState('Avisos desactivados.');
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showAlertsState(permission === 'denied' ? ALERTS_BLOCKED : 'No se activaron: hace falta permitir las notificaciones.');
+          return;
+        }
+        writeFlag(ALERTS_SENT_KEY, null);
+        await syncAlerts(await ensureSubscription());
+        writeFlag(ALERTS_KEY, '1');
+        showAlertsState();
+      }
+    } catch {
+      showAlertsState('No se pudo cambiar los avisos. Probá de nuevo en un rato.');
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 // ---------- Back to top ----------
@@ -854,6 +1351,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupToTop();
   setupInstall();
   setupFreshness();
+  setupPromoDays();
   setupSearch();
   setupSaved();
+  setupAlerts();
 });

@@ -90,6 +90,8 @@ fn parse_page(html: &str, store: &str) -> Page {
                 promo: Some("Oferta".to_string()),
                 url: None,
                 source: Source::Web,
+                // DAR's offer list has no categories.
+                category: None,
             })
         })
         .collect();

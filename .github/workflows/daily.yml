@@ -1,0 +1,43 @@
+# Corrida del día completa: scrapea las tres cadenas a la vez y publica.
+# La dispara todos los días a las 12:00 (hora argentina) el Worker de cron/ (no usa el cron de
+# GitHub, que salía horas tarde). También se puede correr a mano desde Actions.
+# Si una cadena falla, las otras siguen y se publica igual: la que falló sale sin ofertas y abre
+# su issue. Para arreglarla: correr su scrape-<cadena>.yml y después Publicar, a mano.
+name: Corrida del día
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+# A manual run and the scheduled one never overlap: the second waits for the first.
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  carrefour:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      chain: carrefour
+
+  coto:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      chain: coto
+
+  dar:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      chain: dar
+
+  # Runs even if a scrape failed; only a cancelled run skips it.
+  deploy:
+    needs: [carrefour, coto, dar]
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

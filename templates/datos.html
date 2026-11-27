@@ -8,7 +8,8 @@
 <ul>
 <li><a href="/datos/hoy.csv">hoy.csv</a>: todas las cadenas en un solo archivo CSV.</li>
 {% for c in chains %}<li><a href="/datos/{{ c.id }}.json">{{ c.id }}.json</a>: {% if c.failed %}hoy vacío, no pudimos leer la web de {{ c.name }}{% else %}{{ c.count_label }} ofertas de {{ c.name }}{% endif %} ({{ c.store }}).</li>
-{% endfor %}</ul>
+{% endfor %}{% if has_promos %}<li><a href="/datos/bancos.json">bancos.json</a>: descuentos por banco, tarjeta o billetera de cada cadena (campos abajo).</li>
+{% endif %}</ul>
 
 <h2>Campos</h2>
 <p>Los precios están en <strong>centavos</strong> (números enteros): 186000 son $1.860.</p>
@@ -24,7 +25,25 @@
 <dt><code>promo</code></dt><dd>Texto de la promoción (por ejemplo "70% 2da (Llevando 2)").</dd>
 <dt><code>url</code></dt><dd>Página del producto en la web de la cadena.</dd>
 <dt><code>source</code></dt><dd>De dónde sale el precio. Hoy siempre <code>web</code>: el precio online.</dd>
+<dt><code>category</code></dt><dd>Categoría del sitio ({% for c in categories %}<code>{{ c.id }}</code>{% if not loop.last %}, {% endif %}{% endfor %}), armada con la categoría que publica cada cadena. No viene en las ofertas de DAR, que no publica categorías. En el CSV es la columna <code>categoria</code>, la última.</dd>
 </dl>
 <p>Los precios online pueden diferir de los de la góndola.</p>
+{% if has_promos %}
+<h2>Campos de bancos.json</h2>
+<p>Solo descuentos en %: las promos de cuotas sin interés y las que son solo para otras provincias no están.</p>
+<dl>
+<dt><code>chain</code>, <code>id</code></dt><dd>Cadena (carrefour o coto) y código de la promo en la cadena.</dd>
+<dt><code>discount_pct</code></dt><dd>Descuento en %.</dd>
+<dt><code>title</code></dt><dd>Texto de la promo, como lo escribe la cadena.</dd>
+<dt><code>payment</code></dt><dd>Banco, tarjeta o billetera, cuando la cadena lo dice.</dd>
+<dt><code>conditions</code></dt><dd>Tope, compra mínima y otras condiciones, como las escribe la cadena.</dd>
+<dt><code>days</code></dt><dd>Días en que vale: 1 es lunes y 7 es domingo. Vacío si la cadena no lo dice.</dd>
+<dt><code>online</code>, <code>in_store</code></dt><dd>Si vale en la web y si vale en la sucursal.</dd>
+<dt><code>formats</code></dt><dd>Formatos de tienda en que vale (Carrefour: Hiper, Market, Express, Maxi).</dd>
+<dt><code>valid_until</code></dt><dd>Último día en que vale (aaaa-mm-dd), cuando la cadena lo publica.</dd>
+<dt><code>legal</code></dt><dd>Texto legal completo, cuando la cadena lo publica.</dd>
+<dt><code>url</code></dt><dd>Página de la cadena con sus promos y legales.</dd>
+</dl>
+{% endif %}
 </article>
 {% endblock %}
